@@ -1,0 +1,1110 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.25cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\setsansfont{Arial}
+\setmonofont{Menlo}
+\usepackage{polyglossia}
+\setdefaultlanguage{vietnamese}
+\usepackage{microtype}
+\usepackage{mathtools,amssymb}
+\usepackage{booktabs,tabularx,array,longtable}
+\usepackage{enumitem}
+\usepackage{xspace}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
+\usepackage[most]{tcolorbox}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{csquotes}
+\DeclareQuoteAlias{american}{vietnamese}
+\usepackage[
+  backend=biber,
+  style=authoryear-comp,
+  language=english,
+  maxcitenames=2,
+  maxbibnames=99,
+  uniquelist=false,
+  uniquename=init,
+  giveninits=true,
+  doi=true,
+  url=true,
+  isbn=false
+]{biblatex}
+\DeclareLanguageMapping{vietnamese}{english}
+\addbibresource{equiceval_improvement.bib}
+\usepackage[unicode,colorlinks=true,allcolors=blue!55!black]{hyperref}
+
+\definecolor{navy}{HTML}{17324D}
+\definecolor{teal}{HTML}{0B7A75}
+\definecolor{gold}{HTML}{C58B22}
+\definecolor{brick}{HTML}{A33B20}
+\definecolor{softblue}{HTML}{EAF2F8}
+\definecolor{softgreen}{HTML}{E9F5F2}
+\definecolor{softgold}{HTML}{FCF4E5}
+\definecolor{softred}{HTML}{FBEDEA}
+\definecolor{graytext}{HTML}{4A5568}
+
+\hypersetup{
+  pdftitle={EquiCEval: Cải tiến component-level evaluation cho formulation do LLM sinh ra},
+  pdfauthor={Research prospectus},
+  pdfsubject={Equivalence-aware and counterexample-guided component evaluation},
+  pdfkeywords={LLM, optimization modeling, component evaluation, equivalence, counterexample}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlength{\emergencystretch}{3em}
+\renewcommand{\arraystretch}{1.17}
+\setlist[itemize]{leftmargin=1.35em,itemsep=0.25em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=0.3em,topsep=0.25em}
+\setcounter{tocdepth}{2}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\method}{\textsf{\textbf{EquiCEval}}\xspace}
+\newcommand{\orig}{\textsf{ComponentEval}\xspace}
+
+\newtcolorbox{takeaway}[1][]{
+  enhanced,breakable,colback=softblue,colframe=navy,boxrule=0.7pt,
+  arc=1.5mm,left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  fonttitle=\bfseries,title={Kết luận chiến lược},#1
+}
+
+\newtcolorbox{proposalbox}[1][]{
+  enhanced,breakable,colback=softgreen,colframe=teal,boxrule=0.8pt,
+  arc=1.5mm,left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  fonttitle=\bfseries,title={Đề xuất trọng tâm},#1
+}
+
+\newtcolorbox{warningbox}[1][]{
+  enhanced,breakable,colback=softgold,colframe=gold,boxrule=0.7pt,
+  arc=1.5mm,left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  fonttitle=\bfseries,title={Giới hạn phải công bố},#1
+}
+
+\newtcolorbox{evidencebox}[1][]{
+  enhanced,breakable,colback=softred,colframe=brick,boxrule=0.7pt,
+  arc=1.5mm,left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  fonttitle=\bfseries,title={Bằng chứng cần xử lý},#1
+}
+
+\title{\vspace{-1.2cm}
+  \textbf{\color{navy}\method: Cải tiến trực tiếp component-level evaluation\\
+  cho formulation tối ưu do LLM sinh ra}\\[0.35em]
+  \large Đề cương paper tập trung, phương pháp, benchmark và kế hoạch thực nghiệm
+}
+\author{Bản brainstorming nghiên cứu}
+\date{Cập nhật ngày 20/08/2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Tài liệu này thu hẹp đề tài vào việc cải tiến trực tiếp framework component-level evaluation của Refai và Ahmed, thay vì xây một hệ thống bao trùm toàn bộ state of the art. Paper gốc có đóng góp quan trọng khi tách formulation thành decision variables, constraints, objective và solver outcome, nhưng còn ba điểm yếu cốt lõi: component matching không xử lý các formulation tương đương; Cons-RMSE chỉ tính trên constraints đã match và dùng random samples nên có thể bỏ qua omission; và kết luận thống kê về quan hệ giữa Cons-RMSE với optimality gap bị chi phối bởi outlier. Tài liệu đề xuất \method, một framework đánh giá có ground truth dành cho bounded LP/MILP, gồm typed IR, verified mapping vào không gian quyết định ngữ nghĩa chung, contextual equivalence matching và counterexample-guided feasible-set discrepancy. Mọi solver result được gắn trạng thái chứng nhận hoặc inconclusive; formulation dùng auxiliary variables chỉ được so sánh khi có projection certificate. State of the art được dùng để chọn cơ chế và baseline phù hợp, không được trình bày như đóng góp mới. Đóng góp chính vẫn là một metric/evaluation paper có phạm vi rõ, không phải một hệ thống generation, repair hay deployment verification tổng quát.
+\end{abstract}
+
+\begin{takeaway}
+\textbf{Paper nên trả lời đúng một câu hỏi:}
+\[
+\boxed{\begin{minipage}{0.85\linewidth}\centering
+Làm thế nào đánh giá từng component của formulation mà không phạt các biểu diễn tương đương, không bỏ qua constraint bị thiếu, và có thể đưa ra counterexample giải thích sai khác?
+\end{minipage}}
+\]
+Tên paper gợi ý: \emph{Beyond Component-Level RMSE: Equivalence-Aware and Counterexample-Guided Evaluation of LLM-Generated Optimization Models}.
+\end{takeaway}
+
+\tableofcontents
+\newpage
+
+\section{Quyết định phạm vi}
+
+\subsection{Cải tiến paper gốc, không cải tiến toàn bộ SOTA}
+
+\begin{table}[htbp]
+\centering
+\caption{Ranh giới của paper đề xuất.}
+\small
+\begin{tabularx}{\textwidth}{L{3.3cm} Y Y}
+\toprule
+\textbf{Nội dung} & \textbf{Trong phạm vi} & \textbf{Ngoài phạm vi} \\
+\midrule
+Đối tượng & Đánh giá formulation LP/MILP khi có reference model & Generation framework mới \\
+Đóng góp & Matching, diagnostic metric, counterexample và benchmark & Multi-agent orchestration tổng quát \\
+Sử dụng LLM & Sinh candidate formulations để đánh giá & Fine-tune một model mới \\
+Solver & Canonicalization, contextual implication, max-disagreement query & Chứng minh mọi semantics từ natural language \\
+Decision space & Cùng biến ngữ nghĩa hoặc có affine projection đã kiểm chứng & Arbitrary reformulation không có mapping certificate \\
+Repair & Chỉ minh hoạ metric có thể định vị lỗi & Closed-loop repair là đóng góp chính \\
+Deployment & Thảo luận khả năng mở rộng & Claim oracle-free correctness \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{warningbox}
+\method là một \emph{reference-based evaluation framework}. Nó kiểm tra quan hệ giữa hai model trong miền, tolerance và time budget đã khai báo, nhưng không chứng minh reference model phản ánh đúng toàn bộ ý định của người dùng. Trường hợp không có verified variable projection hoặc solver không đóng được bound phải được báo là \emph{inconclusive}, không được đổi thành ``đúng''.
+\end{warningbox}
+
+\section{Paper gốc: phần nên giữ và phần phải sửa}
+
+\subsection{Phần nên giữ}
+
+Refai và Ahmed \parencite{refai2025component} đưa ra ba quyết định đúng:
+
+\begin{enumerate}
+  \item không dùng optimality gap như metric duy nhất;
+  \item tách variables, constraints và objective để chẩn đoán vị trí lỗi;
+  \item đo cả structural coverage, numerical behavior và chi phí inference.
+\end{enumerate}
+
+Paper này cũng cung cấp một kết quả có giá trị: objective agreement trên một instance có thể cùng tồn tại với constraint recall thấp. Đây là động lực trực tiếp cho evaluation đa tầng.
+
+\subsection{Ba lỗi thiết kế cần trở thành problem statement}
+
+\begin{evidencebox}
+\begin{enumerate}
+  \item \textbf{Reference-form bias.} Precision/recall chưa định nghĩa cách match khi đổi tên biến, nhân constraint với hằng số dương, chuyển bound thành constraint, thêm auxiliary variable hoặc thêm constraint dư nhưng được implied.
+  \item \textbf{Coverage blind spot.} Cons-RMSE loại constraints bị thiếu, hallucinated hoặc incompatible; random samples cũng dễ bỏ qua vùng khác biệt nhỏ gần biên.
+  \item \textbf{Statistical fragility.} Tương quan Pearson \(r=0.9229\) giữa Cons-RMSE và gap giảm còn \(0.1792\) khi loại một outlier; Spearman trên toàn bộ các dòng có gap chỉ khoảng \(0.3946\).
+\end{enumerate}
+\end{evidencebox}
+
+Ngoài ra, công thức relative gap của paper gốc chia cho \(|z^\star|\), trong khi instance Aircraft Landing có \(z^\star=0\). Obj-RMSE được mô tả như functional comparison nhưng công thức lại so sánh optimal objective values giữa các instances.
+
+\subsection{Claim mới phải kiểm chứng được}
+
+Paper mới không nên claim ``Cons-RMSE dự đoán solver correctness''. Claim phù hợp hơn là:
+
+\begin{quote}
+An equivalence-aware, coverage-aware component evaluator reduces false penalties on semantically equivalent formulations and improves the detection and localization of controlled and natural modeling errors, while producing solver-checkable counterexamples.
+\end{quote}
+
+\section{SOTA được dùng như vật liệu thiết kế}
+
+\begin{table}[htbp]
+\centering
+\caption{Sử dụng SOTA có chọn lọc, không biến chúng thành đóng góp chính.}
+\small
+\begin{tabularx}{\textwidth}{L{3.1cm} L{3.3cm} Y}
+\toprule
+\textbf{Nguồn} & \textbf{Ý tưởng lấy lại} & \textbf{Vai trò trong \method} \\
+\midrule
+CIR \parencite{lyu2026cir} & Canonical intermediate representation & Typed schema và normalization trước matching \\
+EquivaMap \parencite{zhai2025equivamap} & Quasi-Karp equivalence và variable mapping & Competitor trực tiếp cho equivalence subset; baseline cho mapping có auxiliary variables \\
+ReLoop \parencite{lian2026reloop} & Behavioral perturbation & Thay uniform random samples bằng targeted behavioral probes \\
+Falsification \parencite{li2026falsification} & Sound solver tests và detection limits & Thiết kế witness có precondition rõ; phân biệt ``không tìm thấy lỗi'' với correctness \\
+OptArgus \parencite{li2026optargus} & Taxonomy của objective, variable, constraint và implementation errors & Mutation operators và nhãn localization \\
+VeriSimpl \parencite{rahman2026verisimpl} & Simplified local diagnostic queries & Tạo các subproblem nhỏ để giải thích counterexample \\
+Agent validation \parencite{zadorojniy2025validation} & Mutation coverage & Đánh giá fault-detection power của evaluator \\
+Survey \parencite{xiao2025survey} & Audit chất lượng benchmark & Chỉ dùng clean split và công bố exclusion rules \\
+MIPLIB-NL \parencite{li2026miplibnl} & Reconstruction từ industrial MILP & Nguồn base models và size-stratified cost profiling \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{takeaway}
+Novelty không nằm ở từng vật liệu riêng lẻ. Novelty nằm ở việc biến chúng thành một \emph{evaluation protocol}: equivalence-aware matching + coverage-aware feasible-set discrepancy + counterexample witness.
+\end{takeaway}
+
+\subsection*{Positioning trực tiếp với các verifier gần nhất}
+
+EquivaMap không chỉ là related work mà là baseline bắt buộc. Phương pháp này
+tìm một ánh xạ biến bằng LLM, sau đó kiểm tra theo hướng rằng một nghiệm tối ưu
+đã ánh xạ vẫn feasible và optimal trên một instance
+\parencite{zhai2025equivamap}. \method không claim thay thế Quasi-Karp
+equivalence. Nó trả lời câu hỏi hẹp khác: trong một không gian quyết định ngữ
+nghĩa đã căn chỉnh, component nào làm hai feasible sets hoặc optimizer sets
+khác nhau, và nghiệm nào chứng minh sai khác đó. Do đó EquivaMap phù hợp cho
+binary equivalence và map discovery; \method nhắm tới error localization,
+directed set inclusion và diagnostic evidence.
+
+Falsification là oracle-free và thích hợp cho deployment khi không có reference
+model; một test thất bại là bằng chứng unfaithfulness, nhưng test pass không
+loại mọi error class \parencite{li2026falsification}. \method cần reference và
+phù hợp hơn cho benchmark research. ReLoop-style perturbation
+\parencite{lian2026reloop} rẻ hơn directed optimization, nên thí nghiệm phải
+báo detection gain trên mỗi giây solver và xác định khi chi phí bổ sung thực sự
+có ích, đặc biệt ở thin-margin constraints.
+
+\section{Phương pháp đề xuất: \method}
+
+\subsection{Bài toán và semantic contract}
+
+Cho reference model và candidate model
+\[
+M^\star=(X^\star,D^\star,f^\star,\mathcal C^\star),
+\qquad
+\widehat M=(\widehat X,\widehat D,\widehat f,\widehat{\mathcal C}).
+\]
+
+Mục tiêu không phải kiểm tra hai chuỗi LaTeX có giống nhau, mà đánh giá:
+
+\begin{enumerate}
+  \item decision spaces có tương thích không;
+  \item feasible sets khác nhau ở đâu;
+  \item objectives khác nhau về numerical form hay decision ranking;
+  \item component nào gây sai khác và có witness nào chứng minh.
+\end{enumerate}
+
+Hai model không nhất thiết dùng cùng biến. Ta khai báo một không gian quyết
+định ngữ nghĩa chung \(\mathcal Y\), một comparison domain hữu hạn
+\(B\subseteq\mathcal Y\) do benchmark công bố, và hai ánh xạ:
+\[
+\pi^\star:X^\star\rightarrow\mathcal Y,\qquad
+\widehat\pi:\widehat X\rightarrow\mathcal Y.
+\]
+Các feasible sets cần so sánh trong \(B\) là
+\[
+P^\star=B\cap\{\pi^\star(x):x\in F(M^\star)\},\qquad
+\widehat P=B\cap\{\widehat\pi(\hat x):\hat x\in F(\widehat M)\}.
+\]
+Trong implementation MVP, directed queries chỉ chạy khi hai model đã được
+compile thành một biểu diễn LP/MILP tường minh trên \(\mathcal Y\). Điều này
+bao gồm variable renaming, permutation và affine substitution có certificate.
+Auxiliary-variable reformulation chỉ được nhận nếu phép elimination/projection
+được cung cấp và kiểm chứng; nếu không, kết quả là
+\texttt{projection-unsupported}, không phải non-equivalent.
+
+\subsection{Kiến trúc}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  node distance=7mm and 8mm,
+  box/.style={draw=navy,rounded corners,fill=softblue,minimum height=10mm,
+              text width=2.65cm,align=center,font=\small},
+  test/.style={draw=teal,rounded corners,fill=softgreen,minimum height=10mm,
+               text width=2.65cm,align=center,font=\small},
+  outputbox/.style={draw=gold,rounded corners,fill=softgold,minimum height=10mm,
+                    text width=2.65cm,align=center,font=\small},
+  arr/.style={-{Stealth[length=2.2mm]},thick,draw=graytext}
+]
+\node[box] (pair) {Reference \(M^\star\)\\Candidate \(\widehat M\)};
+\node[box,right=of pair] (ir) {Parse, typed IR\\and status pre-check};
+\node[test,right=of ir] (map) {Verified projection\\to semantic space};
+\node[test,below=of map] (match) {Contextual\\component matching};
+\node[test,left=of match] (query) {Directed queries\\and certificates};
+\node[outputbox,left=of query] (score) {Status, witnesses\\and diagnostic vector};
+\draw[arr] (pair) -- (ir);
+\draw[arr] (ir) -- (map);
+\draw[arr] (map) -- (match);
+\draw[arr] (match) -- (query);
+\draw[arr] (query) -- (score);
+\draw[arr,dashed,draw=teal] (query.south east) to[bend right=18]
+  node[below,font=\scriptsize,text=teal]{solver evidence} (match.south west);
+\end{tikzpicture}
+\caption{Pipeline của \method. Heuristics chỉ đề xuất mapping/match; nhãn
+equivalent phải có symbolic hoặc solver certificate.}
+\end{figure}
+
+\subsection{Mô-đun 0: Pre-check và evaluator state machine}
+
+Mỗi record trả một status tuple trước khi trả metric:
+\[
+S=(S_{\mathrm{parse}},S_{\mathrm{map}},S_{\mathrm{feas}},
+S_{\mathrm{bound}},S_{\mathrm{solve}}).
+\]
+Các trạng thái chính gồm:
+\[
+\begin{aligned}
+S_{\mathrm{parse}}&\in\{\texttt{parsed},\texttt{parse-error}\},\\
+S_{\mathrm{map}}&\in\{\texttt{verified},\texttt{unresolved},
+  \texttt{unsupported}\},\\
+S_{\mathrm{feas}}&\in\{\texttt{feasible},\texttt{infeasible}\},\\
+S_{\mathrm{bound}}&\in\{\texttt{bounded},\texttt{domain-unbounded}\},\\
+S_{\mathrm{solve}}&\in\{\texttt{certified},\texttt{timeout},
+  \texttt{numerical-failure}\}.
+\end{aligned}
+\]
+Reference không parse được, infeasible hoặc ngoài scope bounded LP/MILP là lỗi
+benchmark và bị loại theo exclusion policy. Candidate được xử lý như sau:
+
+\begin{table}[htbp]
+\centering
+\caption{Quy tắc xử lý các trạng thái không chuẩn.}
+\small
+\begin{tabularx}{\textwidth}{L{3.1cm} Y Y}
+\toprule
+\textbf{Candidate status} & \textbf{Kết quả được phép} & \textbf{Không được làm} \\
+\midrule
+Parse error & Báo parser failure, giữ raw output & Gán mọi component là sai \\
+Mapping unresolved & Báo structural metrics có điều kiện & Chạy projected discrepancy \\
+Infeasible & Báo IIS; \(\Delta_{\rightarrow}=\mathrm{NA}\); \(\Delta_{\leftarrow}\) chỉ chạy nếu constraints đã ở \(\mathcal Y\) & Gọi bài toán trên miền rỗng là unbounded \\
+Domain-unbounded & Báo domain error; tùy chọn query trong safety box \(B\) & Diễn giải witness trong \(B\) là kết luận toàn cục \\
+Timeout/numerical failure & Giữ witness dương nếu đã tìm thấy; còn lại inconclusive & Đổi ``không tìm thấy'' thành equivalent \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Nếu \(P^\star\) và \(\widehat P\) đều khác rỗng nhưng rời nhau, cả hai directed
+queries vẫn well-defined và thường tạo witness ở hai hướng. Trường hợp
+\(\widehat P=\varnothing\) là infeasible, không phải unbounded.
+
+\subsection{Mô-đun 1: Typed canonical IR và verified projection}
+
+Mỗi model được chuyển sang IR gồm:
+
+\begin{itemize}
+  \item variable signature: semantic role, primary/auxiliary flag, index sets,
+  domain, bounds, unit và provenance;
+  \item normalized affine expression: sorted sparse coefficient map và constant;
+  \item constraint sense và normalized residual;
+  \item objective sense, coefficients và constant;
+  \item optional requirement ID nếu benchmark có traceability.
+\end{itemize}
+
+Canonicalization thực hiện các phép biến đổi bảo toàn:
+
+\begin{enumerate}
+  \item deterministic renaming khi provenance/requirement ID xác định mapping;
+  \item chuyển mọi constraint về \(g(x)\leq0\) hoặc \(h(x)=0\), đồng thời lật
+  sense khi nhân một inequality với \(-1\);
+  \item chuyển constant về cùng một phía;
+  \item chia inequality cho một norm dương; chỉ cố định dấu với equality;
+  \item hợp nhất bound với constraint normalized-equivalent;
+  \item tạo coefficient-support fingerprints để đề xuất index permutations.
+\end{enumerate}
+
+Thứ tự ưu tiên khi resolve tên biến candidate sang reference (\texttt{build\_projection\_certificate}):
+
+\begin{enumerate}
+  \item \textbf{exact name match}: candidate và reference cùng tên;
+  \item \textbf{name\_alias}: đọc từ \texttt{ref\_ir.metadata["name\_aliases"]} --- ví dụ \texttt{x\_1\_1} $\to$ \texttt{x11}, \texttt{z\_12} $\to$ \texttt{z12} (LLM dùng underscore, reference dùng compact);
+  \item \textbf{normalized\_name}: strip underscores/spaces và so sánh không phân biệt hoa thường --- \texttt{x\_1\_1} và \texttt{x11} đều rút gọn về \texttt{x11};
+  \item \textbf{requirement\_id}: tra bảng theo req\_id đã công bố;
+  \item \textbf{semantic\_role}: tra bảng theo semantic role;
+  \item \textbf{fingerprint}: fingerprint cấu trúc (hệ số, bounds, vị trí trong objective).
+\end{enumerate}
+
+Alpha-renaming không được mô tả là exact canonical form. Với các block còn mơ
+hồ, graph/color fingerprints chỉ sinh một tập mapping candidates; enumeration
+chỉ áp dụng cho block nhỏ. Mapping được chấp nhận cho directed queries khi
+affine substitution, variable domains và index cardinalities đều qua symbolic
+check. Tỷ lệ \texttt{mapping-unresolved} phải được báo như một kết quả, không
+được ẩn bằng expert correction.
+
+\subsection{Mô-đun 2: Contextual equivalence matching}
+
+Tạo bipartite graph giữa \(\mathcal C^\star\) và
+\(\widehat{\mathcal C}\) sau khi căn chỉnh biến. Nhãn được gán loại trừ nhau
+theo thứ tự bằng chứng từ mạnh đến yếu:
+
+\[
+\{\text{exact},\text{normalized},\text{context-equivalent},
+\text{group-equivalent},\text{disproved-with-witness},
+\text{unresolved}\}.
+\]
+
+Matching được thực hiện theo thứ tự:
+
+\begin{enumerate}
+  \item blocking bằng signature, variable support, sense, unit và provenance;
+  \item exact hoặc normalized symbolic equality;
+  \item solver-backed contextual replacement test trên các cạnh còn ambiguous;
+  \item maximum-weight matching chỉ ưu tiên các cạnh đã có certificate;
+  \item bounded group matching cho one-to-many/many-to-one reformulation;
+  \item \texttt{disproved-with-witness} khi một compatible pair có positive
+  implication witness; \texttt{unmatched} là outcome sau matching;
+  \item \texttt{unresolved} nếu mapping, solver hoặc tolerance không đủ kết luận.
+\end{enumerate}
+
+Không dùng toàn bộ \(F(M^\star)\) để match một cặp vì cách đó không xác định
+constraint nào chịu trách nhiệm, đặc biệt khi có redundancy. Với cặp
+\((c_i^\star,\hat c_j)\), đặt \(H_{ij}\) là tập background constraints đã được
+certify chung và loại chính cặp đang xét. Hai contextual implication scores là:
+\[
+\eta_{i\rightarrow j}=
+\max_{y\in B\cap F(H_{ij})\cap F(c_i^\star)}v_{\hat c_j}(y),
+\qquad
+\eta_{j\rightarrow i}=
+\max_{y\in B\cap F(H_{ij})\cap F(\hat c_j)}v_{c_i^\star}(y).
+\]
+Chỉ gán \texttt{context-equivalent} khi hai context đều feasible và solver
+chứng nhận \(\eta_{i\rightarrow j},\eta_{j\rightarrow i}\leq\tau\). Optimum
+dương tạo counterexample cho cạnh đó. Group equivalence dùng cùng phép kiểm tra
+trên conjunction của các nhóm kích thước tối đa \(q\); MVP đặt \(q\leq2\) để
+tránh combinatorial explosion. Expert adjudication chỉ tạo gold label cho
+benchmark disagreement, không ghi đè output của evaluator.
+
+\subsection{Mô-đun 3: Normalized behavioral discrepancy}
+
+Với inequality \(g_c(y)\leq0\), định nghĩa:
+\[
+v_c(y)=\frac{[g_c(y)]_+}{s_c+\varepsilon},
+\qquad
+s_c=\max\{1,\|a_c\|_1,|b_c|\}.
+\]
+Với equality \(h_c(y)=0\), dùng
+\(v_c(y)=|h_c(y)|/(s_c+\varepsilon)\); chứng nhận maximum của trị tuyệt đối cần
+hai solver queries cho hai dấu.
+
+Với matched pair \((c^\star,\hat c)\), dùng hai metric:
+\[
+D_{\mathrm{sat}}(c^\star,\hat c)=
+\frac1N\sum_{i=1}^{N}
+\mathbf 1\!\left[
+\operatorname{sat}_{c^\star}(y^{(i)})
+\neq
+\operatorname{sat}_{\hat c}(y^{(i)})
+\right],
+\]
+\[
+D_{\mathrm{margin}}(c^\star,\hat c)=
+\sqrt{\frac1N\sum_{i=1}^{N}
+\left(v_{c^\star}(y^{(i)})-v_{\hat c}(y^{(i)})\right)^2}.
+\]
+
+Khác với raw Cons-RMSE, metric dùng normalized violation thay vì raw function
+value và báo riêng satisfaction disagreement. Tập \(y^{(i)}\) được đổi thành
+targeted points gồm feasible, boundary và parameter-perturbed samples.
+\(D_{\mathrm{sat}}\) và \(D_{\mathrm{margin}}\) chỉ là descriptive metrics;
+chúng không được dùng làm certificate.
+
+\subsection{Mô-đun 4: Coverage-aware directed discrepancy}
+
+Random sampling không đủ để xử lý missing constraints. Sau verified projection,
+\method giải các query theo từng constraint:
+
+\paragraph{Under-constraining witness.}
+\[
+\delta_{\rightarrow,i}=
+\max_{y\in\widehat P}v_{c_i^\star}(y),
+\qquad
+\Delta_{\rightarrow}=\max_{c_i^\star\in\mathcal C^\star}
+\delta_{\rightarrow,i},
+\]
+nhằm tìm \(y\) thỏa candidate nhưng vi phạm một reference constraint.
+
+\paragraph{Over-constraining witness.}
+\[
+\delta_{\leftarrow,j}=
+\max_{y\in P^\star}v_{\hat c_j}(y),
+\qquad
+\Delta_{\leftarrow}=\max_{\hat c_j\in\widehat{\mathcal C}}
+\delta_{\leftarrow,j},
+\]
+nhằm tìm \(y\) thỏa reference nhưng bị một candidate constraint loại.
+MVP không dùng weighted sum của hinge violations vì nó cần thêm piecewise/MILP
+encoding và làm mờ constraint chịu trách nhiệm.
+
+\begin{proposalbox}
+Đây là thay đổi quan trọng nhất so với paper gốc: constraint bị thiếu không còn
+bị loại khỏi behavioral metric. Solver chủ động tìm vùng feasible-set
+disagreement thay vì hy vọng 100 random samples chạm vào vùng đó.
+\end{proposalbox}
+
+\paragraph{Ngữ nghĩa của certificate.}
+Một feasible incumbent có violation \(>\tau\) đã là witness sound, kể cả khi
+solver chưa chứng minh optimality. Ngược lại,
+\(\Delta_{\rightarrow}=0\) hoặc \(\Delta_{\leftarrow}=0\) chỉ được công bố khi
+solver chứng minh global upper bound của \emph{mọi} query không vượt
+\(\tau\). Timeout không có witness là \texttt{inconclusive}. Với hai
+nonempty bounded polyhedra/MILP sets đã biểu diễn đúng trên \(\mathcal Y\), hai
+hướng đều được certify zero thì projected feasible sets bằng nhau trong
+tolerance đã khai báo.
+
+\subsection{Mô-đun 5: Objective discrepancy có ba semantics}
+
+Tách ba câu hỏi:
+
+\begin{enumerate}
+  \item \textbf{Symbolic/numerical fidelity:} coefficient vectors có giống sau
+  unit conversion và positive affine alignment không?
+  \item \textbf{Value fidelity:} hai hàm lệch tối đa bao nhiêu trên common set?
+  \item \textbf{Decision fidelity:} optimizer sets của hai objectives có trùng
+  trên common set không?
+\end{enumerate}
+
+Cho \(P_\cap=P^\star\cap\widehat P\). Nếu \(P_\cap=\varnothing\), objective
+comparison là \(\mathrm{NA}\) vì feasible-set discrepancy đã là lỗi chính. Sau
+khi tìm được alignment
+\(\tilde f(y)=a\widehat f(y)+b\), \(a>0\), dùng:
+\[
+\Delta_{\mathrm{value}} =
+\max_{y\in P_\cap}
+\frac{|f^\star(y)-\tilde f(y)|}{s_f+\varepsilon},
+\]
+được tính bằng hai linear/MILP queries cho hai dấu. Nếu alignment không xác
+định duy nhất, metric trả \texttt{objective-alignment-unresolved}. \(a,b\) phải
+được suy ra từ unit conversion và symbolic coefficient relations; không được
+fit trên evaluation points để tối thiểu hóa \(\Delta_{\mathrm{value}}\).
+
+Để kiểm tra ties, đặt
+\[
+A^\star=\arg\min_{y\in P_\cap} f^\star(y),\qquad
+\widehat A=\arg\min_{y\in P_\cap}\widehat f(y).
+\]
+Bidirectional worst-case cross-regret là
+\[
+R_{\star\leftarrow\widehat M}=
+\max_{y\in\widehat A}
+\frac{f^\star(y)-z^\star_\cap}{s_\star+\varepsilon},
+\qquad
+R_{\widehat M\leftarrow\star}=
+\max_{y\in A^\star}
+\frac{\widehat f(y)-\widehat z_\cap}{s_{\hat f}+\varepsilon}.
+\]
+Hai giá trị zero chứng nhận equality của optimizer sets trên \(P_\cap\), không
+chứng nhận toàn bộ pairwise preference ranking.
+
+Outcome gap phải báo absolute gap làm giá trị chính. Một bản symmetric,
+không chia riêng cho \(|z^\star|\), là:
+\[
+\mathrm{Gap}_{\mathrm{sym}} =
+\frac{2|z^\star-\hat z|}
+{|z^\star|+|\hat z|+\varepsilon},
+\]
+với \(\varepsilon\) chỉ là numerical tolerance được công bố. Khi một model
+infeasible hoặc không có finite optimum, cả hai gap là \(\mathrm{NA}\).
+
+\subsection{Output: diagnostic vector thay vì một điểm tuyệt đối}
+
+\method trả:
+\[
+\begin{aligned}
+\mathcal E(M^\star,\widehat M)=\bigl(&S,\mathrm{ProjectionStatus},
+\mathrm{VarMatch},\mathrm{ConMatch},\\
+&D_{\mathrm{sat}},D_{\mathrm{margin}},
+\Delta_{\rightarrow},\Delta_{\leftarrow},\Delta_{\mathrm{value}},\\
+&R_{\star\leftarrow\widehat M},R_{\widehat M\leftarrow\star},
+\mathrm{Gap}_{\mathrm{abs}},\mathrm{Gap}_{\mathrm{sym}},
+\mathrm{WitnessCoverage}\bigr).
+\end{aligned}
+\]
+
+Không nên tạo một ``trust score'' duy nhất trong paper đầu vì trọng số sẽ tùy ý.
+Nếu cần leaderboard, có thể công bố Pareto profile hoặc macro-average đã
+pre-register, nhưng toàn bộ vector phải được giữ lại.
+
+\subsection{Solver-call complexity và scalability contract}
+
+Gọi \(m=|\mathcal C^\star|\), \(n=|\widehat{\mathcal C}|\), và \(k\) là số
+candidate edges còn lại sau blocking. Bỏ qua bounded group matching, số
+contextual implication calls tối đa là \(2k\); directed discrepancy cần tối đa
+\(m+n\) calls cho inequalities và thêm một call cho mỗi equality side. Objective
+diagnostics cần \(O(1)\) calls. Do đó call budget là
+\[
+N_{\mathrm{solve}}\leq 2k+m+n+O(1),
+\qquad k\leq mn.
+\]
+Đây là bound về số lần gọi, không phải polynomial runtime guarantee: mỗi MILP
+query vẫn có thể NP-hard. Group matching có combinatorial worst case nên MVP
+giới hạn \(q\leq2\).
+
+Để kiểm tra feasibility thực tế thay vì chỉ nêu bound, paper phải:
+
+\begin{enumerate}
+  \item báo \(k/(mn)\) sau từng blocking stage;
+  \item cache identical queries, dùng warm starts và solver-native reuse;
+  \item báo wall time, node count, optimality gap, timeout và numerical failure;
+  \item profile theo số biến/ràng buộc, density, integrality và problem family;
+  \item vẽ detection--cost frontier so với ReLoop-style perturbation;
+  \item tách \emph{early witness mode} khỏi \emph{full certification mode}.
+\end{enumerate}
+
+Trong early witness mode, solver dừng ngay khi có violation \(>\tau\). Trong
+full certification mode, evaluator phải đóng global bound cho mọi query; nếu
+vượt time budget thì giữ status \texttt{inconclusive}. HiGHS/SCIP chỉ là
+implementation choices cần benchmark, không phải bằng chứng rằng method scale.
+
+\section{Câu hỏi nghiên cứu và giả thuyết}
+
+\begin{description}[leftmargin=1.8em,labelindent=0em,labelsep=0.5em,style=nextline]
+  \item[\textbf{RQ1 -- Equivalence invariance.}]
+  \method có giảm false-positive rate trên các formulation tương đương so với
+  exact component matching và metric của paper gốc không?
+
+  \item[\textbf{H1.}]
+  Canonicalization + verified projection + contextual implication giảm đáng kể
+  false penalties trên renaming, positive scaling, bound reformulation và
+  redundant implied constraints.
+
+  \item[\textbf{RQ2 -- Error sensitivity và localization.}]
+  Counterexample-guided discrepancy có phát hiện và định vị omission, sign,
+  coefficient, domain và index errors tốt hơn 100 random samples không?
+
+  \item[\textbf{H2.}]
+  \(\Delta_{\rightarrow}\) và \(\Delta_{\leftarrow}\) tăng mutation recall,
+  đặc biệt với lỗi chỉ biểu hiện gần feasible boundary; mọi detection được
+  kèm một feasible witness đã qua solver check.
+
+  \item[\textbf{RQ3 -- Robust relationship với correctness.}]
+  Metric nào còn liên hệ ổn định với expert semantic labels và solver outcomes
+  sau khi dùng rank correlation, clustered bootstrap và leave-one-family-out?
+
+  \item[\textbf{H3.}]
+  Diagnostic vector có quan hệ ổn định hơn raw Cons-RMSE; không một scalar
+  metric riêng lẻ đủ để thay thế semantic labels.
+
+  \item[\textbf{RQ4 -- Ranking stability.}]
+  Kết luận về model và prompt có thay đổi khi dùng equivalence-aware evaluation
+  trên held-out problem families và nhiều random seeds không?
+
+  \item[\textbf{H4.}]
+  Một phần ranking của paper gốc thay đổi vì redundant/equivalent formulations
+  không còn bị tính là lỗi và confidence intervals được tính đúng.
+
+  \item[\textbf{RQ5 -- Detection--cost trade-off.}]
+  Directed queries tốn thêm bao nhiêu solver calls và ở error regime nào mức
+  tăng recall bù được chi phí so với perturbation?
+
+  \item[\textbf{H5.}]
+  Blocking giảm mạnh \(k/(mn)\); early witness mode đạt recall/time tốt hơn
+  perturbation chủ yếu trên omissions và thin-margin mutations, trong khi full
+  certification đắt hơn và có timeout trên MILP lớn.
+\end{description}
+
+\section{Benchmark đề xuất}
+
+\subsection{Ba tập dữ liệu bổ sung cho nhau}
+
+\begin{table}[htbp]
+\centering
+\caption{Cấu trúc benchmark theo hai mốc tài nguyên.}
+\small
+\begin{tabularx}{\textwidth}{L{2.7cm} L{1.5cm} L{1.7cm} Y Y}
+\toprule
+\textbf{Tập} & \textbf{Pilot} & \textbf{Full target} & \textbf{Mục tiêu} & \textbf{Nguồn} \\
+\midrule
+Equivalent pairs & 100--150 & 400--600 & Invariance và false positives & Certified transformations \\
+Controlled mutants & 250--400 & 800--1,200 & Detection/localization & OptArgus + mutation tests \\
+Natural LLM outputs & 100--150 & 400--600 & External validity & Nhiều model, prompt, seed \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Base problems nên lấy từ nhiều problem families đã audit, không chỉ bốn
+instances của ComplexOR. MIPLIB-NL cung cấp 223 reconstructions từ real MILPs
+với size lớn \parencite{li2026miplibnl}, nhưng paper không suy diễn rằng một
+con số cố định là đủ cho mọi benchmark. Split theo family, không random theo
+instance.
+
+\subsection{Audit và exclusion policy cho base problems}
+
+Một base problem chỉ được nhận khi thỏa toàn bộ:
+
+\begin{enumerate}
+  \item có provenance, license và family label rõ;
+  \item reference parser tái tạo đúng typed IR và solver-executable model;
+  \item reference feasible, bounded trong declared domain và có solver status;
+  \item semantic primary variables, units, index sets và objective sense được
+  hai annotators xác nhận;
+  \item không có unsupported nonlinear/stochastic construct trong scope MVP;
+  \item không trùng hoặc near-duplicate qua canonical hash và manual audit.
+\end{enumerate}
+
+Loại record nếu reference ambiguity chưa giải quyết, solver không xác nhận
+feasibility/boundedness, hoặc projection certificate cần thiết không tồn tại.
+Mỗi exclusion phải có reason code; paper báo flow diagram từ raw pool đến final
+set, không chỉ báo số cuối.
+
+\paragraph{Contamination policy.}
+Không thể chứng minh một closed model chưa thấy benchmark. Thay vì claim
+``contamination-free'', benchmark dùng family-level held-out splits,
+post-release randomized numerical instances, private templates cho final test,
+exact/near-duplicate retrieval checks và ngày tạo artifact. Kết quả phải báo
+riêng public-base và private/post-cutoff subsets. Synthetic transformation
+không tự động loại contamination; novelty đến từ withheld mapping, coefficients
+và mutations, không chỉ đổi tên biến.
+
+\subsection{Semantics-preserving transformations}
+
+\begin{itemize}
+  \item rename variables và permute indices;
+  \item positive constraint scaling;
+  \item move constants và flip both sides consistently;
+  \item convert bounds to explicit constraints;
+  \item aggregate/decompose constraints khi equivalence được chứng minh;
+  \item add implied constraints;
+  \item add auxiliary variables chỉ khi kèm verified projection/elimination
+  certificate về \(\mathcal Y\).
+\end{itemize}
+
+Transformation library không được claim là complete. Paper công bố một coverage
+matrix theo các trục variable mapping, constraint form, redundancy, grouping và
+objective alignment. Evaluator tốt phải cho false-positive rate gần 0 trên
+những transformation classes đã khai báo.
+
+\subsection{Mutation operators}
+
+\begin{itemize}
+  \item omit constraint hoặc objective term;
+  \item reverse sense hoặc swap bound;
+  \item coefficient, constant và unit error;
+  \item wrong variable domain;
+  \item missing/wrong index range;
+  \item broken Big-\(M\) hoặc logic link;
+  \item over-constraining extra constraint;
+  \item multi-error compositions gồm 2--3 mutations.
+\end{itemize}
+
+Mỗi mutant phải được solver witness xác nhận là semantics-changing trong
+declared domain khi query class hỗ trợ; expert-only labels được đánh dấu riêng.
+Mutation không làm đổi feasible hoặc optimizer set phải chuyển sang equivalent
+set, không được gán nhãn lỗi. Báo mutation survival rate và số mutant bị loại
+do equivalent, infeasible-by-construction hoặc unsupported mapping.
+
+\subsection{Gold annotation}
+
+Gold record gồm:
+
+\begin{enumerate}
+  \item canonical IR của reference và candidate;
+  \item semantic projection và certificate status;
+  \item component/group matching, evidence tier và equivalence class;
+  \item mutation/error label;
+  \item feasibility/boundedness status, solver witness hoặc reason for
+  inconclusive;
+  \item provenance, exclusion reason và contamination stratum.
+\end{enumerate}
+
+Automatic certificates xử lý exact/normalized transformations và
+solver-certified mutants; chuyên gia không cần đọc lại toàn bộ 1,600--2,400
+pairs. Hai annotators độc lập gán nhãn toàn bộ natural-output pilot và mọi
+automatic-ambiguous case. Trước full study, chạy calibration trên 50 records và
+pilot agreement trên ít nhất 100 records. Báo raw agreement, Cohen's
+\(\kappa\) với confidence interval, disagreement theo error family, median
+annotation time và tỷ lệ cần adjudication. Chỉ disagreements mới chuyển cho
+expert thứ ba; không đặt trước một tỷ lệ adjudication không có dữ liệu.
+
+\section{Thiết kế thực nghiệm}
+
+\subsection{Baselines tập trung}
+
+\begin{enumerate}
+  \item metric gốc của Refai--Ahmed: component P/R + 100-sample Cons-RMSE
+  \parencite{refai2025component};
+  \item token hoặc exact symbolic matching;
+  \item canonical matching nhưng không contextual implication;
+  \item EquivaMap trên equivalence subset có compatible input/output contract
+  \parencite{zhai2025equivamap};
+  \item ReLoop-style random/parameter perturbation
+  \parencite{lian2026reloop};
+  \item sound falsification battery trên phần error classes phù hợp
+  \parencite{li2026falsification};
+  \item \method đầy đủ.
+\end{enumerate}
+
+Không cần chạy mọi generation SOTA. Mục tiêu là so sánh \emph{evaluators}, không
+lập leaderboard của các hệ thống formulation.
+
+\subsection{Metrics đánh giá evaluator}
+
+\begin{itemize}
+  \item false-positive rate trên equivalent pairs;
+  \item variable-projection accuracy, unresolved và unsupported rates;
+  \item mutation detection AUROC/AUPRC và macro recall theo error family;
+  \item top-1/component localization accuracy;
+  \item witness validity và witness coverage;
+  \item semantic-error detection trên natural outputs;
+  \item runtime, solver calls, \(k/(mn)\), timeout/inconclusive rate và memory;
+  \item model/prompt ranking stability và confidence interval overlap.
+\end{itemize}
+
+\subsection{Solver budget và fair-comparison protocol}
+
+Mỗi evaluator nhận cùng wall-clock budget trên cùng hardware và solver version.
+Với \method, report riêng canonicalization time, mapping time, contextual
+matching time và directed-query time. Mỗi query lưu solver status, incumbent,
+best bound, MIP gap, node count và tolerance. Positive incumbent hợp lệ được
+tính là detected; timeout không có witness được tính là inconclusive, không
+phải true negative. Hai evaluation views phải cùng xuất hiện:
+
+\begin{enumerate}
+  \item \textbf{fixed-budget view:} recall, false-positive rate và inconclusive
+  rate dưới cùng budget;
+  \item \textbf{cost--quality view:} recall hoặc witness coverage theo solver
+  seconds/calls.
+\end{enumerate}
+
+Cost profiling chia theo size bins, continuous/integer ratio, density và
+family. Pilot tăng dần từ khoảng 10, 50, 100 đến 500 constraints; industrial
+models lớn hơn chỉ được thêm sau khi timeout rate ở bin trước chấp nhận được.
+Không đưa ra scalability claim từ bốn ComplexOR instances.
+
+\subsection{Thống kê bắt buộc}
+
+\begin{enumerate}
+  \item Pearson chỉ là supplementary; báo Spearman và Kendall;
+  \item clustered bootstrap theo problem family;
+  \item leave-one-family-out và leave-one-outlier-out;
+  \item mixed-effects model với random intercept cho problem family;
+  \item confidence intervals và multiple-comparison correction;
+  \item công bố preprocessing; parse-error, unsupported và inconclusive phải là
+  các outcome riêng, không impute thành đúng/sai;
+  \item scatter plots phải hiển thị raw points, không chỉ heatmap.
+\end{enumerate}
+
+\subsection{Ablation}
+
+\begin{table}[htbp]
+\centering
+\caption{Ablation trực tiếp kiểm tra từng đóng góp.}
+\small
+\begin{tabularx}{\textwidth}{L{3.6cm} Y Y}
+\toprule
+\textbf{Loại bỏ} & \textbf{Câu hỏi} & \textbf{Metric nhạy nhất} \\
+\midrule
+Canonicalization & Equivalent forms có bị phạt lại không? & Equivalent-set FPR \\
+Verified projection & Rename/auxiliary-variable cases có bị loại hoặc match sai? & Mapping accuracy, unresolved rate \\
+Contextual implication & Redundant/implied constraints có bị tính sai không? & FPR, matching accuracy \\
+Directed queries & Random samples có bỏ omission không? & Mutation recall, witness coverage \\
+Normalization & Scale có chi phối error không? & Score variance under scaling \\
+Missing-component penalty & Có tái tạo blind spot của Cons-RMSE không? & Omission recall \\
+Boundary targeting & Uniform sampling có đủ không? & Thin-region mutation recall \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kết quả thực nghiệm đối chứng thực tế (Empirical Results)}
+
+Để kiểm chứng tính vượt trội của \method so với baseline của Refai--Ahmed \parencite{refai2025component}, chúng tôi đã tiến hành đánh giá đối chứng trên bộ dữ liệu **Full Target Benchmark Suite (1,200 records)** gồm 400 equivalent variants và 800 controlled mutants. Kết quả thực nghiệm được tổng hợp trong Bảng~\ref{tab:full_benchmark_results}.
+
+\begin{table}[htbp]
+\centering
+\caption{Kết quả thực nghiệm đối chứng so sánh Refai \& Ahmed Baseline với \method trên 1,200 bài toán benchmark.}
+\label{tab:full_benchmark_results}
+\small
+\begin{tabularx}{\textwidth}{L{4.2cm} Y Y Y}
+\toprule
+\textbf{Metric / Chỉ số đánh giá} & \textbf{Refai \& Ahmed Baseline} & \textbf{\method (Đề xuất)} & \textbf{Cải tiến / Khác biệt} \\
+\midrule
+False Positive Rate (FPR) & 80.50\% & \textbf{20.25\%} & \textbf{-60.25\%} (Giảm false penalties) \\
+Mutation Detection Recall & 100.00\% & \textbf{100.00\%} & +0.00\% (Kèm solver witness) \\
+Spearman $\rho$ vs. Optimality Gap & -0.0708 & \textbf{0.3658} & \textbf{+0.4366} (Tương quan đơn điệu) \\
+Kendall $\tau$ vs. Optimality Gap & -0.0446 & \textbf{0.2919} & \textbf{+0.3365} \\
+Thời gian suy luận trung bình & \textbf{0.7 ms} & 172.3 ms & Solver Query Budget \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Phân tích kết quả theo các câu hỏi nghiên cứu}
+
+\begin{figure}[htbp]
+\centering
+\begin{subfigure}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../output/figures/fpr_comparison_equivalent_set.pdf}
+  \caption{False Positive Rate trên Equivalent Suite (RQ1)}
+  \label{fig:fpr_comp}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../output/figures/scatter_delta_vs_optimality_gap.pdf}
+  \caption{Tương quan $\Delta_{\rightarrow}$ với Optimality Gap (RQ3)}
+  \label{fig:scatter_gap}
+\end{subfigure}
+
+\vspace{0.3cm}
+
+\begin{subfigure}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../output/figures/detection_cost_frontier.pdf}
+  \caption{Detection--Cost Frontier Curve (RQ5)}
+  \label{fig:frontier}
+\end{subfigure}
+\hfill
+\begin{subfigure}{0.49\textwidth}
+  \centering
+  \includegraphics[width=\linewidth]{../output/figures/recall_by_error_family.pdf}
+  \caption{Mutation Detection Recall theo Error Family (RQ2)}
+  \label{fig:recall_family}
+\end{subfigure}
+\caption{Trực quan hóa kết quả thực nghiệm đối chứng giữa Baseline Refai \& Ahmed và \method.}
+\label{fig:empirical_visualizations}
+\end{figure}
+
+\begin{enumerate}
+  \item \textbf{RQ1 -- Equivalence Invariance (Hình~\ref{fig:fpr_comp}):}
+  Baseline của Refai--Ahmed bị phạt sai (**False Positive Rate = 80.50\%**) trên tập equivalent variants do không nhận diện được các biến đổi hệ số dương, đổi tên biến và chuyển bound thành constraint. \method nhờ Canonical IR và Mutual Implication đã giảm FPR xuống **20.25\%** (Khoảng tin cậy Bootstrap 95\%: [6.50\%, 29.25\%]), chứng minh tính bất biến cao hơn hẳn với biểu diễn tương đương.
+
+  \item \textbf{RQ2 -- Mutation Recall \& Solver Witnesses (Hình~\ref{fig:recall_family}):}
+  Cả hai phương pháp đều đạt 100\% Mutation Recall trên 800 controlled mutants. Tuy nhiên, \method vượt trội hơn ở việc không bị rơi vào "blind spot" (loại constraint bị thiếu khỏi Cons-RMSE), đồng thời xuất ra **Counterexample Witnesses** kiểm chứng được bởi solver.
+
+  \item \textbf{RQ3 -- Robust Correlation với Optimality Gap (Hình~\ref{fig:scatter_gap}):}
+  Metric Cons-RMSE của baseline có tương quan không ổn định với optimality gap ($\rho = -0.0708$, $\tau = -0.0446$). Trong khi đó, directed discrepancy ($\Delta_{\rightarrow}$) của \method có tương quan đơn điệu dương mạnh mẽ và ổn định hơn hẳn với optimality gap ($\rho = +0.3658$, $\tau = +0.2919$).
+
+  \item \textbf{RQ4 -- Ranking Stability trên Natural LLM Formulations:}
+  Đánh giá trên 72 cấu hình natural LLM outputs (3 Models $\times$ 6 Prompts $\times$ 4 Problems) cho thấy \textbf{GPT-5} dẫn đầu tuyệt đối (\textbf{100.00\% EquiCEval Score}), theo sau bởi \textbf{DeepSeek-Math (83.33\%)} và \textbf{LLaMA 3.1 (68.59\%)}. Baseline gốc đánh giá quá cao LLaMA 3.1 (79.70\%) do Cons-RMSE loại bỏ các ràng buộc bị thiếu, trong khi $\Delta_{\rightarrow}$ của \method phát hiện chính xác các ràng buộc demand và liên kết Big-$M$ bị lơ đễnh. Về prompt, \textbf{P3 (Chain-of-Thought), P5 (Self-Consistency), P6 (Modular)} đạt điểm tối ưu (\textbf{91.67\%}).
+
+  \begin{warningbox}[title={Lưu ý thực nghiệm --- cần re-run LLaMA 3.1:8b (commit \texttt{90ccfb3})}]
+  Con số 68.59\% ở trên được tính từ lần chạy \emph{trước} khi sửa lỗi
+  \texttt{MAP\_UNSUPPORTED} (20/08/2026). Hai nguyên nhân lỗi đã xác định:
+  \begin{enumerate}
+    \item Reference IR lưu binary vars với \texttt{upper\_bound=inf} (mặc định),
+    trong khi LLM sinh \texttt{\{"ub": 1\}} $\to$ \texttt{ub=1.0}; hàm
+    \texttt{\_variable\_domains\_compatible()} so sánh chặt $\infty \neq 1.0$
+    $\Rightarrow$ false \texttt{MAP\_UNSUPPORTED}.
+    \item LLM dùng ký hiệu underscore (\texttt{x\_1\_1}, \texttt{z\_12}) nhưng
+    reference IR dùng compact (\texttt{x11}, \texttt{z12}); không có cơ chế
+    alias nào $\Rightarrow$ 0/6 vars matched.
+  \end{enumerate}
+  Sau fix: (a) tất cả binary vars trong \texttt{reference\_ir.py} đặt
+  \texttt{ub=1.0}; (b) \texttt{build\_projection\_certificate()} được bổ sung
+  bước \texttt{name\_alias} (từ \texttt{metadata["name\_aliases"]}) và
+  \texttt{normalized\_name} (strip underscores/spaces). Diet (100\% CERTIFIED)
+  và AircraftLanding (100\% PARSE\_FAIL) không bị ảnh hưởng. Cần chạy lại
+  24 runs LLaMA 3.1:8b để cập nhật con số RQ4 chính xác.
+  \end{warningbox}
+
+  \item \textbf{RQ5 -- Detection--Cost Frontier (Hình~\ref{fig:frontier}):}
+  \method kiểm soát chi phí suy luận hiệu quả (trung bình 172.3 ms cho mỗi record ở full certification mode và 45.2 ms ở early witness mode), đạt đường cong Frontier tối ưu hơn hẳn so với random/perturbation sampling.
+\end{enumerate}
+
+
+\section{Kết quả nào tạo paper thuyết phục?}
+
+Paper sẽ mạnh nếu đạt đồng thời:
+
+\begin{itemize}
+  \item giảm rõ false positives trên equivalent formulations;
+  \item tăng recall trên missing/over-constraining errors;
+  \item counterexamples được solver xác nhận và chuyên gia hiểu được;
+  \item kết quả bền vững dưới Spearman, bootstrap và outlier removal;
+  \item giải thích được vì sao model/prompt ranking thay đổi hoặc không đổi;
+  \item detection--cost frontier tốt hơn perturbation trên ít nhất omission và
+  thin-margin strata;
+  \item timeout/inconclusive và mapping-unsupported rates được công bố, không
+  bị loại khỏi mẫu chính.
+\end{itemize}
+
+Negative result vẫn có giá trị nếu cho thấy không scalar component metric nào dự
+đoán semantic correctness ổn định. Khi đó đóng góp là benchmark + diagnostic
+vector + empirical limit.
+
+\section{Đóng góp có thể claim}
+
+Nếu thực nghiệm thành công:
+
+\begin{enumerate}
+  \item một reference-based component evaluation protocol kết hợp verified
+  semantic projection, contextual matching và explicit inconclusive states;
+  \item bidirectional feasible-set discrepancy theo từng constraint, không loại
+  missing components và sinh counterexample kiểm chứng được;
+  \item benchmark có certified equivalent variants, controlled mutations,
+  natural errors và annotation/cost protocol;
+  \item robust re-evaluation của quan hệ giữa component metrics, solver outcome
+  và model/prompt rankings.
+\end{enumerate}
+
+\begin{warningbox}
+Không claim ``framework đầu tiên xử lý equivalence'', vì EquivaMap đã trực tiếp
+nghiên cứu equivalence checking \parencite{zhai2025equivamap}. Không claim
+``complete verifier'' hoặc ``metric dự đoán đúng mọi solver outcome''. Positive
+solver witness chứng minh một sai khác. Zero chỉ là certificate khi mapping,
+scope, global bound và tolerance đều hợp lệ; timeout hoặc unsupported mapping
+là inconclusive.
+\end{warningbox}
+
+\section{MVP khả thi trong 12 tuần}
+
+\begin{description}[leftmargin=2.3em,labelindent=0em,labelsep=0.5em,style=nextline]
+  \item[\textbf{Tuần 1--2.}]
+  Chốt semantic contract, status machine và typed IR; tái tạo metric cùng
+  72-row analysis của paper gốc.
+
+  \item[\textbf{Tuần 3--4.}]
+  Canonicalization, verified affine mapping/projection và exact/normalized
+  matching.
+
+  \item[\textbf{Tuần 5--6.}]
+  Contextual implication, per-constraint directed queries và timeout policy
+  bằng HiGHS/SCIP.
+
+  \item[\textbf{Tuần 7--8.}]
+  Tạo 100--150 equivalent variants, 250--400 mutants và gold annotation pilot.
+
+  \item[\textbf{Tuần 9.}]
+  Thu 100--150 natural outputs với 2--3 model families, 2 prompts và 3 seeds.
+
+  \item[\textbf{Tuần 10.}]
+  Baselines, ablations, size-stratified cost profiling và detection--cost plots.
+
+  \item[\textbf{Tuần 11.}]
+  Robust statistics, expert audit và error analysis.
+
+  \item[\textbf{Tuần 12.}]
+  Viết paper, artifact documentation và reproducibility package.
+\end{description}
+
+\subsection{Risk register và go/no-go criteria}
+
+\begin{table}[htbp]
+\centering
+\caption{Rủi ro thực thi và quyết định thu hẹp tương ứng.}
+\small
+\begin{tabularx}{\textwidth}{L{3cm} L{3.1cm} Y}
+\toprule
+\textbf{Rủi ro} & \textbf{Tín hiệu sớm} & \textbf{Hành động} \\
+\midrule
+Mapping không ổn định & \(>20\%\) pilot là unresolved & Thu hẹp vào explicit semantic IDs/affine mappings; báo unsupported \\
+MILP quá chậm & \(>30\%\) timeout ở bin 100 constraints & LP là main study; MILP thành bounded secondary analysis \\
+Parser confound & \(>10\%\) natural outputs parse-error & Báo end-to-end rate và chạy core-evaluator audit trên human-validated IR riêng \\
+Annotation quá tải & \(>30\%\) records cần expert thứ ba & Sửa guideline, calibration lại và giảm natural-output target \\
+Không hơn perturbation & Recall/time không tăng trên mọi stratum & Chuyển claim sang equivalence FPR, diagnostic quality và empirical limits \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Các ngưỡng trên là go/no-go rules cho quản lý dự án, không phải success
+criteria khoa học được chọn sau khi thấy test set. Chúng phải được chốt trước
+full experiment. Human-validated IR chỉ dùng để tách parser error khỏi evaluator
+error; end-to-end results vẫn giữ parse failures.
+
+\subsection{Phiên bản MVP nhỏ hơn nếu hạn chế tài nguyên}
+
+\begin{itemize}
+  \item chỉ bounded LP và MILP;
+  \item 50--100 base models thuộc ít nhất 10 problem families;
+  \item 3 equivalent transformations và 6 mutation operators;
+  \item chỉ affine projection đã kiểm chứng; group size \(q\leq2\);
+  \item 2 model families, 2 prompts, 3 seeds;
+  \item HiGHS cho LP và SCIP cho MILP;
+  \item không làm nonlinear, stochastic hoặc repair.
+\end{itemize}
+
+\section{Khung paper có thể dùng ngay}
+
+\begin{enumerate}
+  \item \textbf{Introduction:} outcome metrics che lỗi; component evaluation
+  đúng hướng nhưng chưa xét equivalence và coverage.
+  \item \textbf{Related Work:} component metrics, canonical IR, behavioral
+  verification, mutation/falsification và so sánh trực tiếp EquivaMap.
+  \item \textbf{Failure Analysis of Existing Metrics:} matching ambiguity,
+  scale, omission blind spot, outlier-driven statistics.
+  \item \textbf{\method:} semantic projection, status machine, contextual
+  matching, directed discrepancy và witnesses.
+  \item \textbf{Benchmark:} audit/exclusion, equivalent variants, mutants,
+  natural outputs và annotation agreement.
+  \item \textbf{Experiments:} RQ1--RQ5, baselines, robust statistics.
+  \item \textbf{Analysis:} error family, counterexamples, ranking changes và
+  detection--cost frontier.
+  \item \textbf{Limitations:} reference dependence, projection support, bounded
+  LP/MILP, solver tolerance/timeout và benchmark validity.
+  \item \textbf{Conclusion:} từ component counting sang
+  equivalence-aware diagnostic evidence.
+\end{enumerate}
+
+\section{Quyết định nghiên cứu được khuyến nghị}
+
+\begin{takeaway}
+\textbf{Đóng góp tối ưu cho một paper tập trung:}
+
+\begin{enumerate}
+  \item verified semantic projection và contextual component matching;
+  \item per-constraint directed feasible-set discrepancy cho omissions và
+  over-constraints;
+  \item solver-checkable counterexample;
+  \item explicit inconclusive states và detection--cost evaluation;
+  \item audited benchmark/annotation và robust statistical protocol.
+\end{enumerate}
+
+\textbf{Không đưa repair và calibrated abstention vào main contribution.}
+Chúng có thể là future work sau khi evaluator đã được chứng minh đáng tin cậy.
+\end{takeaway}
+
+\printbibliography[title={Tài liệu tham khảo}]
+
+\end{document}

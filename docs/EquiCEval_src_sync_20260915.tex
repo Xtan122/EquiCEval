@@ -1,0 +1,115 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[margin=1.8cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\setmonofont{Courier New}[Scale=0.85]
+\usepackage{polyglossia}
+\setdefaultlanguage{vietnamese}
+\usepackage{booktabs,tabularx,array,enumitem,fvextra,microtype}
+\usepackage[hidelinks]{hyperref}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt}
+\setlength{\emergencystretch}{2em}
+\setlist[itemize]{leftmargin=1.3em,itemsep=2pt,topsep=2pt}
+\renewcommand{\arraystretch}{1.15}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\DefineVerbatimEnvironment{cmd}{Verbatim}{fontsize=\small,breaklines=true,breakanywhere=true,frame=single,framesep=4pt}
+\newcommand{\heading}[1]{\par\vspace{4pt}{\large\bfseries #1}\par}
+\begin{document}
+{\LARGE\bfseries EquiCEval: cập nhật mã nguồn}\par
+{\small Ngày 15/09/2026 | Đối chiếu với \path{paper_brainstorm/equiceval_v3.tex}}\par
+\hrule\vspace{5pt}
+
+\heading{1. Đã bổ sung gì?}
+\begin{tabularx}{\textwidth}{@{}p{3.5cm}Y@{}}
+\toprule
+\textbf{Phần} & \textbf{Cách hoạt động và giới hạn}\\
+\midrule
+Đối chiếu trong nền chung (M2) & Chỉ dùng các hàng chung đã xác nhận bằng đại số;
+loại hàng đang xét và bản sao của chúng. Kiểm tra suy ra hai chiều và kiểm tra
+miền nguồn có nghiệm. Tối đa 32 cặp, có thể chưa tìm hết.\\
+Đối chiếu nhóm (M2) & Tùy chọn một hàng với hai hàng, tối đa 16 phép thử.
+Chỉ xét hàng còn chưa ghép; chọn nhóm theo quy tắc cố định. Không khẳng định
+nhóm nhỏ nhất hay phương án ghép nhóm tối ưu.\\
+Chỉ số mô tả (M3) & Ghi số điểm thực dùng, số cặp, số phép so sánh, hàng chưa ghép,
+hộp và ngưỡng sai số. Không có điểm/cặp thì ghi \texttt{null}, không ghi 0.
+Nhóm không được ép thành cặp giả để tính chỉ số.\\
+Kiểm tra và mục tiêu & Không gọi miền không bị chặn là lỗi cú pháp; kiểm tra
+lại điểm khả thi. Báo riêng hệ số mục tiêu giống nhau hay chỉ cho cùng giá trị.\\
+Nhật ký 2.1 & Ghi cặp/nhóm, nền chung, chứng cứ hai chiều, mẫu số và số lần gọi
+bộ giải theo bước. Công cụ sinh viên đã đọc định dạng mới.\\
+\bottomrule
+\end{tabularx}
+
+\heading{2. Ba quy tắc để không kết luận nhầm}
+\begin{itemize}
+\item \textbf{Đối chiếu thành phần không thay kết luận toàn mô hình.}
+Ví dụ, $x+y\leq1$ và $x\leq1$ tương đương khi biết $y=0$, nhưng không tương đương
+ở mọi điểm. Phản ví dụ của cặp phải kiểm tra lại toàn bộ nguồn trước khi dùng
+để bác bỏ mô hình. Hai miền ngữ cảnh rỗng không được coi là tương đương.
+\item \textbf{Phân biệt chứng cứ hữu tỉ với cận số.} \texttt{MatchCoverage}
+chỉ tính hàng có chứng cứ hữu tỉ; \texttt{Numerical\allowbreak Match\allowbreak Coverage} nhận thêm
+kết luận theo ngưỡng sai số. Mỗi hàng tham chiếu chỉ tính một lần, kể cả trong nhóm.
+\item \textbf{M4--M5 chạy trước, giải thích sau.} M2--M3 dùng ngân sách còn lại.
+Hết ngân sách vẫn là chưa kết luận, không trở thành ``không có lỗi''.
+Điểm mô tả có thể khác nhau ngoài nền chung dù cặp đã được xác nhận trong nền.
+\end{itemize}
+
+\heading{3. Chưa được triển khai}
+Cross-regret trên \emph{toàn bộ} tập nghiệm tối ưu; tiêu chí chỉ giữ tập nghiệm
+tối ưu; đổi đơn vị mục tiêu; chiếu bỏ biến phụ; đối chứng bài gốc đầy đủ;
+nhóm giải thích nhỏ nhất. Đầu ra ghi rõ phần chưa hỗ trợ, không sinh số thay thế.
+
+\newpage
+{\LARGE\bfseries Kiểm thử và phát hành cấu hình}\par
+{\small Dành cho người hướng dẫn; sinh viên chỉ chạy hồ sơ đã được duyệt}\par
+\hrule\vspace{5pt}
+
+\heading{4. Kiểm tra đã chạy}
+Toàn bộ 89 kiểm thử tự động đã vượt qua, gồm 23 kiểm thử mới so với bản trước.
+Nhật ký \path{output/verified_evaluation_20260915_m2m3_final.json} có 108 lượt:
+12 ca nhỏ, ba ngân sách và ba chế độ. Ở 0 giây: đều chưa kết luận.
+Ở 1 hoặc 5 giây: chế độ có chứng cứ xác nhận 5 ca tương đương, phát hiện 7 ca lỗi;
+chế độ chỉ truy vấn xác nhận 5 ca bằng cận số, không gọi là chứng cứ hữu tỉ.
+Đây là \textbf{kiểm tra phần mềm}, không phải benchmark LLM thật hay bằng chứng
+đủ để khẳng định đóng góp nghiên cứu. Ba chế độ là đối chứng nội bộ, không phải
+các phương pháp trong bài báo gốc hoặc các hệ thống khác.
+
+Các kiểm thử mới bao gồm nền $y=0$, thiếu nền, nền rỗng, hàng bị lặp,
+nhóm đẳng thức/bất đẳng thức, hết ngân sách, mẫu số, miền không bị chặn và
+phát lại chứng cứ hữu tỉ trên hàng gốc. Cảnh báo API PuLP còn tồn tại;
+đợt này không nâng cấp thư viện.
+
+\heading{5. Lệnh dành cho thầy, tại thư mục gốc dự án}
+\begin{cmd}
+.venv/bin/python -m pytest tests -q --disable-warnings
+.venv/bin/python -m experiments.run_verified_evaluation --output output/new_check.json --budgets 0 1 5
+\end{cmd}
+Chọn đường dẫn mới; chương trình không ghi đè kết quả. Mặc định đối chiếu theo
+ngữ cảnh bật, nhóm tắt. Khi cần kiểm tra nhóm, dùng lệnh riêng và lưu cấu hình riêng:
+\begin{cmd}
+.venv/bin/python -m experiments.run_verified_evaluation --output output/new_group_check.json --budgets 5 --group-matching
+\end{cmd}
+Bộ 12 ca hiện tại không đủ đánh giá lợi ích ghép nhóm; lệnh trên chỉ kiểm tra
+đường chạy. Kiểm thử nhóm dùng ca thiết kế riêng. Có thể tắt đối chiếu ngữ cảnh
+bằng \texttt{--no-context-matching}; không tự đổi chế độ của sinh viên.
+
+\heading{6. Không dùng hồ sơ cấu hình cũ sau khi sửa mã}
+Hồ sơ đã đóng băng trước bản sửa này sẽ bị từ chối do mã băm khác.
+Thầy dừng đợt cũ, tạo hồ sơ \emph{mới} trên máy chung và duyệt trước khi giao:
+\begin{cmd}
+.venv/bin/python -m experiments.controlled_pilot freeze --profile configs/shared_pilot_20260915.json
+.venv/bin/python -m experiments.controlled_pilot verify --profile configs/shared_pilot_20260915.json
+\end{cmd}
+Phiếu chạy của cả Cường, Hoàng, Thành và Sơn phải dùng đúng đường dẫn và
+SHA-256 hồ sơ mới. Sinh viên không tự đóng băng, bật ghép nhóm, sửa ngân sách
+hay chạy lại khi lỗi. Giữ nguyên kết quả cũ để truy vết; không gộp các phiên bản.
+Giống cấu hình vẫn không bảo đảm thời gian giống từng bit hoặc đủ điều kiện làm
+bảng hiệu quả chính của paper.
+
+\heading{7. Nơi xem mã}
+\path{src/equiceval/matching.py}: nền chung, cặp và nhóm;
+\path{src/equiceval/evaluator.py}: đầu ra và chỉ số;
+\path{src/equiceval/directed_query.py}: bằng chứng từng chiều;
+\path{experiments/run_verified_evaluation.py}: lệnh kiểm tra.
+\end{document}

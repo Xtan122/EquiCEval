@@ -1,0 +1,71 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# LaTeX build artifacts & temporary caches
+.build_latex/
+*.aux
+*.bbl
+*.bcf
+*.bcf*
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.xdv
+*.spl
+*-SAVE-ERROR
+
+# Temporary directory
+tmp/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+env/
+.pytest_cache/
+
+# Office lock files
+.~lock.*
+~$*
+
+# Editors & environment
+.vscode/
+.idea/
+*.swp
+*.swo
+.env
+
+# AI & Documentation
+ai-docs/
+ai-docs-for-me/
+AGENTS.md
+
+# External third-party repos / datasets (cloned, not vendored)
+external/
+
+# Gurobi license (SECRET)
+*.lic
+gurobi.lic
+
+# Large run logs / JSON outputs are not committed (use .md reports instead).
+# Tracked historical files stay tracked; new ones must be forced with `git add -f`.
+output/*.json
+output/**/*.json
+
+# Exception: compact, reviewable artifacts produced by
+# scripts/compact_equiva_output.py (equiceval + baseline, per run).
+!output/public/
+!output/public/*.json

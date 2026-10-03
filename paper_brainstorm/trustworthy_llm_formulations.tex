@@ -1,0 +1,682 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.25cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\setsansfont{Arial}
+\setmonofont{Menlo}
+\usepackage{polyglossia}
+\setdefaultlanguage{vietnamese}
+\usepackage{microtype}
+\usepackage{mathtools,amssymb}
+\usepackage{booktabs,tabularx,longtable,array,multirow}
+\usepackage{enumitem}
+\usepackage{xspace}
+\usepackage{xcolor}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit}
+\usepackage[most]{tcolorbox}
+\usepackage{csquotes}
+\DeclareQuoteAlias{american}{vietnamese}
+\usepackage[
+  backend=biber,
+  style=authoryear-comp,
+  language=english,
+  maxcitenames=2,
+  maxbibnames=99,
+  uniquelist=false,
+  uniquename=init,
+  giveninits=true,
+  doi=true,
+  url=true,
+  isbn=false
+]{biblatex}
+\DeclareLanguageMapping{vietnamese}{english}
+\addbibresource{trustworthy_llm_formulations.bib}
+\usepackage[unicode,colorlinks=true,allcolors=blue!55!black]{hyperref}
+
+\definecolor{navy}{HTML}{17324D}
+\definecolor{teal}{HTML}{0B7A75}
+\definecolor{gold}{HTML}{C58B22}
+\definecolor{brick}{HTML}{A33B20}
+\definecolor{softblue}{HTML}{EAF2F8}
+\definecolor{softgreen}{HTML}{E9F5F2}
+\definecolor{softgold}{HTML}{FCF4E5}
+\definecolor{softred}{HTML}{FBEDEA}
+\definecolor{graytext}{HTML}{4A5568}
+
+\hypersetup{
+  pdftitle={Đảm bảo tính tin cậy của formulation do LLM sinh ra trong tối ưu hoá},
+  pdfauthor={Research prospectus},
+  pdfsubject={State of the art, research gaps, and proposed methods},
+  pdfkeywords={LLM, optimization modeling, verification, repair, abstention}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.55em}
+\setlength{\emergencystretch}{3em}
+\renewcommand{\arraystretch}{1.18}
+\setlist[itemize]{leftmargin=1.35em,itemsep=0.25em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=1.55em,itemsep=0.3em,topsep=0.25em}
+\setcounter{tocdepth}{2}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcommand{\method}{\textsf{\textbf{CertOpt}}\xspace}
+\newcommand{\yes}{\textcolor{teal}{Có}}
+\newcommand{\partialyes}{\textcolor{gold!85!black}{Một phần}}
+\newcommand{\no}{\textcolor{brick}{Không}}
+\newcommand{\preprint}{\textcolor{gold!80!black}{Preprint}}
+\newcommand{\peer}{\textcolor{teal}{Đã phản biện}}
+
+\newtcolorbox{takeaway}[1][]{
+  enhanced,
+  breakable,
+  colback=softblue,
+  colframe=navy,
+  boxrule=0.7pt,
+  arc=1.5mm,
+  left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  fonttitle=\bfseries,
+  title={Kết luận chính},
+  #1
+}
+
+\newtcolorbox{proposalbox}[1][]{
+  enhanced,
+  breakable,
+  colback=softgreen,
+  colframe=teal,
+  boxrule=0.8pt,
+  arc=1.5mm,
+  left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  fonttitle=\bfseries,
+  title={Đề xuất trọng tâm},
+  #1
+}
+
+\newtcolorbox{warningbox}[1][]{
+  enhanced,
+  breakable,
+  colback=softgold,
+  colframe=gold,
+  boxrule=0.7pt,
+  arc=1.5mm,
+  left=2mm,right=2mm,top=1.5mm,bottom=1.5mm,
+  fonttitle=\bfseries,
+  title={Giới hạn cần ghi rõ},
+  #1
+}
+
+\title{\vspace{-1.2cm}
+  \textbf{\color{navy}Đảm bảo tính tin cậy của các formulation do LLM sinh ra\\
+  trong bài toán tối ưu hoá}\\[0.35em]
+  \large Bản đồ state of the art, khoảng trống nghiên cứu và đề cương phương pháp khả thi
+}
+\author{Bản brainstorming cho đề tài nghiên cứu}
+\date{Cập nhật đến ngày 31/07/2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Tài liệu này xây dựng một bản đồ bằng chứng có chọn lọc về việc sinh mô hình tối ưu từ ngôn ngữ tự nhiên bằng mô hình ngôn ngữ lớn (LLM), với trọng tâm là \emph{độ tin cậy của formulation} thay vì chỉ khả năng chạy code. Tài liệu phân biệt sáu tầng đảm bảo: hợp lệ cú pháp, khả năng giải, tính khả thi, đúng giá trị nghiệm, trung thành ngữ nghĩa, và độ tin cậy có hiệu chỉnh khi triển khai. Tổng quan cho thấy state of the art đã chuyển từ generate-and-run sang biểu diễn trung gian, huấn luyện có solver, kiểm tra hành vi, kiểm tra hai phía, mutation testing và falsification dựa trên lý thuyết tối ưu. Vì vậy, đóng góp ``dùng solver perturbation để kiểm tra formulation'' không còn đủ mới ở thời điểm hiện tại. Khoảng trống khả thi hơn là biến các bằng chứng lỗi có cấu trúc thành sửa lỗi cục bộ không regression, đồng thời hiệu chỉnh quyết định accept--repair--abstain. Từ đó, tài liệu đề xuất \method: một pipeline \emph{certificate-guided selective repair} trên MILP, kèm câu hỏi nghiên cứu, giả thuyết, thiết kế thí nghiệm, ablation, rủi ro và lộ trình triển khai.
+\end{abstract}
+
+\begin{takeaway}
+Nếu chỉ chọn một hướng để viết paper, lựa chọn được khuyến nghị là:
+\[
+\boxed{\text{\method: certificate-guided localized repair + calibrated abstention cho MILP}}
+\]
+Đóng góp nên được định vị là \emph{sửa lỗi và ra quyết định có kiểm soát dựa trên certificate}, không phải phát minh lại behavioral verification.
+\end{takeaway}
+
+\tableofcontents
+\newpage
+
+\section{Mục tiêu, phạm vi và cách đọc tài liệu}
+
+\subsection{Đối tượng nghiên cứu}
+
+Cho mô tả tự nhiên \(p\), một hệ thống sinh ra formulation
+\[
+M=(X,D,f,\mathcal{C},\theta),
+\]
+trong đó \(X\) là biến quyết định, \(D\) là miền biến, \(f\) là hàm mục tiêu, \(\mathcal{C}\) là tập ràng buộc và \(\theta\) là dữ liệu/tham số. Bài toán không chỉ là làm cho solver trả về trạng thái \texttt{optimal}; bài toán thực sự là bảo đảm \(M\) biểu diễn đúng ý định trong \(p\), và hệ thống biết khi nào bằng chứng hiện có chưa đủ để tin.
+
+Phạm vi chính của đề xuất là LP/MILP với mô tả tiếng Anh hoặc tiếng Việt đã chứa đủ dữ kiện số. Nonlinear, stochastic và multi-objective được giữ làm hướng mở vì chúng làm tăng đáng kể phần lý thuyết và chi phí benchmark.
+
+\subsection{Loại tổng quan}
+
+Đây là \textbf{rapid evidence map} phục vụ chọn đề tài, không phải systematic literature review theo PRISMA. Nguồn được ưu tiên là trang paper chính thức của ACL Anthology, PMLR, NeurIPS/OpenReview và arXiv. Mốc chốt tìm kiếm là 31/07/2026. Các kết quả preprint được ghi rõ để tránh đánh đồng với công trình đã qua phản biện.
+
+Do benchmark, base model, solver và tolerance khác nhau giữa các bài, cụm từ ``state of the art'' trong tài liệu này chỉ có nghĩa là \emph{frontier method theo từng cơ chế đảm bảo}; không nên xếp hạng tuyệt đối chỉ từ accuracy do các bài tự báo cáo. Khảo sát gần đây còn phát hiện tỷ lệ lỗi đáng kể trong nhiều benchmark, làm cho so sánh chéo càng dễ sai lệch \parencite{xiao2025survey}.
+
+\section{Độ tin cậy của formulation gồm những gì?}
+
+Một nguồn nhầm lẫn phổ biến là dùng các khái niệm sau như thể tương đương. Chúng tạo thành các cổng kiểm tra khác nhau.
+
+\begin{table}[htbp]
+\centering
+\caption{Taxonomy sáu tầng độ tin cậy. Tầng cao không tự động suy ra từ tầng thấp.}
+\label{tab:reliability-levels}
+\small
+\begin{tabularx}{\textwidth}{L{2.5cm} Y Y}
+\toprule
+\textbf{Tầng} & \textbf{Câu hỏi kiểm tra} & \textbf{Ví dụ failure vẫn lọt qua} \\
+\midrule
+L1. Cú pháp & Code có parse/compile không? & Sai dấu bất đẳng thức nhưng code hợp lệ. \\
+L2. Khả năng giải & Solver có kết thúc với trạng thái hợp lệ không? & Mô hình bỏ một ràng buộc nên giải nhanh hơn. \\
+L3. Feasibility & Nghiệm có thỏa chính mô hình đã sinh không? & Nghiệm feasible cho mô hình sai, nhưng vi phạm yêu cầu gốc. \\
+L4. Outcome agreement & Objective/solution có khớp nhãn trên một instance không? & Hai feasible set khác nhau tình cờ có cùng optimum. \\
+L5. Semantic faithfulness & Biến, miền, objective và mọi requirement có được biểu diễn đúng không? & Thiếu time window, sai hệ số, sai indexing hoặc sai Big-\(M\). \\
+L6. Deployment reliability & Khi nào hệ thống nên accept, repair, hỏi lại hay abstain? & Verifier không phát hiện lỗi nhưng hệ thống vẫn tự tin deploy. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+ReLoop báo cáo một ``feasibility--correctness gap'' có thể đạt 90 điểm phần trăm trên bài toán compositional, minh hoạ rõ rằng L2--L3 không đại diện cho L5 \parencite{lian2026reloop}. OptArgus cũng chỉ ra rằng ngay trong nhóm kết quả khớp objective, vẫn có các artifact sai cấu trúc \parencite{li2026optargus}. Do đó, paper mới phải báo cáo riêng từng tầng và không dùng ``solver says optimal'' như một chứng nhận ngữ nghĩa.
+
+\section{Bản đồ state of the art}
+
+\subsection{Giai đoạn 1: Từ semantic parsing đến agent sinh code}
+
+NL4Opt đặt nền móng bằng cách tách nhận diện thực thể và sinh logical form, sau đó chuyển sang định dạng solver \parencite{ramamonjison2022augmenting,ramamonjison2023nl4opt}. Các hệ thống tiếp theo như Chain-of-Experts và OptiMUS phân rã vai trò formulator, coder, evaluator và debugger; OptiMUS còn dùng pipeline mô-đun để xử lý mô tả dài \parencite{xiao2024chain,ahmaditeshnizi2024optimus}. Autoformulation xem không gian formulation như một cây tìm kiếm và dùng MCTS để khám phá các giả thuyết \parencite{astorga2024autoformulation}.
+
+Ưu điểm của nhóm này là triển khai không cần huấn luyện lại; điểm yếu là feedback chủ yếu đến từ code execution, solver status hoặc LLM tự đánh giá. Các tín hiệu này cải thiện executability nhưng chưa tạo certificate ngữ nghĩa.
+
+\subsection{Giai đoạn 2: Dữ liệu có cấu trúc và post-training có solver}
+
+ORLM, LLMOPT, OptMATH, Step-Opt và OptiTrust cải thiện chất lượng bằng instruction tuning, structured targets và dữ liệu tổng hợp có kiểm tra \parencite{huang2025orlm,jiang2024llmopt,lu2025optmath,wu2025stepopt,lima2025optitrust}. SIRL đưa syntax, feasibility, objective và thống kê từ tệp LP vào reward RLVR; EVOM dùng outcome-only execution reward và hỗ trợ đổi solver backend \parencite{chen2025sirl,guan2026evom}.
+
+Đây là bước tiến quan trọng ở \emph{generation quality}. Tuy nhiên, reward của SIRL vẫn dùng optimal objective \(y^\star\) trong dữ liệu huấn luyện, nên không tự giải quyết oracle problem khi triển khai trên một yêu cầu mới không có nhãn \parencite{chen2025sirl}. Solver chỉ xác nhận mô hình được sinh đã được giải đúng theo nội dung của chính nó.
+
+\subsection{Giai đoạn 3: Intermediate representation và validation theo stage}
+
+LLMOPT dùng five-element formulation, còn CIR/R2C tách rule logic khỏi mathematical instantiation bằng constraint archetype và modeling paradigm \parencite{jiang2024llmopt,lyu2026cir}. TriVAL đặt cổng construct--validate--revise ở ba stage: semantic specification, mathematical formulation và code \parencite{fang2026trival}. ConstraintLLM bổ sung retrieval theo ràng buộc và guided self-correction cho constraint programming \parencite{shi2025constraintllm}.
+
+IR giúp type checking, provenance và deterministic compilation. Dù vậy, một IR được sinh sai nhưng nội bộ nhất quán vẫn có thể đi qua toàn bộ pipeline. VeriSimpl quan sát đúng failure này: formulation và LLM reasoning có thể đồng thuận trên cùng một cách hiểu sai \parencite{rahman2026verisimpl}.
+
+\subsection{Giai đoạn 4: Verification hướng tới silent failure}
+
+Đây là frontier liên quan trực tiếp nhất đến đề tài:
+
+\begin{itemize}
+  \item \textbf{Component-level evaluation} đo precision/recall của variable và constraint, RMSE của hệ số, thay vì chỉ outcome accuracy \parencite{refai2025component}.
+  \item \textbf{Mutation/testing}: một nhóm agent sinh testing API, test và mutation để đo fault-detection power \parencite{zadorojniy2025validation}.
+  \item \textbf{Behavioral verification}: ReLoop perturb tham số, quan sát phản ứng của optimum và dùng diagnosis-guided repair \parencite{lian2026reloop}.
+  \item \textbf{Multi-stage hoặc dual-side verification}: TriVAL kiểm ở ba stage; Opt-Verifier kiểm từ phía structure và solution \parencite{fang2026trival,liu2026optverifier}.
+  \item \textbf{Solver simplification}: VeriSimpl cố định/mask biến và ràng buộc để tạo câu hỏi chẩn đoán đơn giản hơn cho LLM \parencite{rahman2026verisimpl}.
+  \item \textbf{Taxonomy-grounded auditing}: OptArgus dùng các specialist auditor cho objective, variable, constraint và implementation errors \parencite{li2026optargus}.
+  \item \textbf{Sound falsification}: Li và Hai suy ra test từ duality, comparative statics và polyhedral limits; khi một test sound bị vi phạm, đó là certificate rằng candidate không trung thành với role đã khai báo \parencite{li2026falsification}.
+\end{itemize}
+
+\subsection{Ma trận các công trình tiêu biểu}
+
+\begingroup
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{longtable}{L{3.5cm} L{1.4cm} L{2.9cm} L{1.9cm} L{2.0cm} L{2.2cm}}
+\caption{Ma trận SOTA theo cơ chế đảm bảo. ``Bắt silent failure'' chỉ phản ánh phạm vi được paper kiểm chứng, không phải bảo đảm đầy đủ.}
+\label{tab:sota}\\
+\toprule
+\textbf{Công trình} & \textbf{Trạng thái} & \textbf{Cơ chế chính} & \textbf{Bắt silent failure?} & \textbf{Cần reference lúc deploy?} & \textbf{Giới hạn liên quan} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Công trình} & \textbf{Trạng thái} & \textbf{Cơ chế chính} & \textbf{Bắt silent failure?} & \textbf{Cần reference lúc deploy?} & \textbf{Giới hạn liên quan} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+OptiMUS \parencite{ahmaditeshnizi2024optimus} & \peer & Agent mô-đun, solver, debug & \partialyes & Không để chạy; cần nhãn để đánh giá & Feedback execution không chứng minh semantics. \\
+ORLM \parencite{huang2025orlm} & \peer & Dữ liệu tổng hợp, SFT, IndustryOR & \partialyes & Có trong đánh giá & Tăng generation accuracy; không phải deployment verifier. \\
+SIRL \parencite{chen2025sirl} & \peer & RLVR với solver và LP features & \partialyes & Có \(y^\star\) trong reward và evaluation & Có thể reward đúng outcome nhưng sai formulation. \\
+Step-Opt \parencite{wu2025stepopt} & \peer & Iterative synthesis, structured validation & \partialyes & Có trong lọc dữ liệu/evaluation & Validation chủ yếu ở data/training. \\
+CIR/R2C \parencite{lyu2026cir} & \preprint & Typed IR, retrieval, multi-agent & \partialyes & Không bắt buộc & IR sai nhưng nhất quán vẫn tồn tại. \\
+TriVAL \parencite{fang2026trival} & \preprint & Ba cổng validation theo stage & \yes & Không bắt buộc & Validator dựa nhiều vào LLM; lỗi tương quan. \\
+ReLoop \parencite{lian2026reloop} & \preprint & Perturbation, IIS, repair guard & \yes & Không & Threshold heuristic; hạn chế với sai hệ số/equivalence. \\
+Opt-Verifier \parencite{liu2026optverifier} & \peer & Structure-side + solution-side & \yes & Không bắt buộc & Chất lượng phụ thuộc verifier reasoning. \\
+VeriSimpl \parencite{rahman2026verisimpl} & \peer & Solver-generated simplifications & \yes & Không & Có thể cùng hiểu sai variable hoặc requirement bị bỏ sót. \\
+OptArgus \parencite{li2026optargus} & \preprint & Taxonomy, specialist auditors, abstention & \yes & Không bắt buộc & Detection, chưa đánh giá closed-loop repair. \\
+Agent validation \parencite{zadorojniy2025validation} & \preprint & Testing API + tests + mutations & \yes & Không bắt buộc & Mutation coverage không đồng nghĩa semantic correctness. \\
+Falsification battery \parencite{li2026falsification} & \preprint & Sound solver tests, detection limits & \yes & Không & Detection chứ chưa repair; blind set còn tồn tại. \\
+PEARL \parencite{lu2026pearl} & \preprint & Learned solve--debug--revise tool loop & \partialyes & Không bắt buộc & Verified solve rate chưa phải certificate semantics. \\
+\end{longtable}
+\endgroup
+
+\section{Những kết luận đã đủ mạnh để làm nền cho paper}
+
+\begin{enumerate}
+  \item \textbf{Executability và feasibility là điều kiện cần, không đủ.} Solver không biết ý định trong natural language; nó chỉ giải mô hình được cung cấp \parencite{lian2026reloop}.
+  \item \textbf{Khớp objective trên một instance không định danh formulation.} OptArgus xây dựng trực tiếp bài toán phát hiện artifact sai cấu trúc dù outcome có vẻ đúng \parencite{li2026optargus}.
+  \item \textbf{Verifier dùng cùng LLM có common-mode failure.} ReLoop thừa nhận constraint extraction và generation dùng cùng model; VeriSimpl ghi nhận cả solver formulation và reasoning có thể nhất quán với cùng một hiểu sai \parencite{lian2026reloop,rahman2026verisimpl}.
+  \item \textbf{Reference-free verification chỉ có thể falsify, không chứng minh completeness tổng quát.} Một sound battery có thể chứng nhận candidate sai khi test fail; khi mọi test pass, candidate vẫn có thể thuộc blind set \parencite{li2026falsification}.
+  \item \textbf{Benchmark noise là biến nhiễu lớn.} Một survey do chuyên gia kiểm tra báo cáo nhiều benchmark có lỗi mô tả, tham số hoặc ground truth; MIPLIB-NL được tạo để đưa đánh giá tới mô hình công nghiệp có quy mô lớn hơn \parencite{xiao2025survey,li2026miplibnl}.
+\end{enumerate}
+
+\begin{warningbox}
+Không nên viết claim ``đảm bảo formulation đúng hoàn toàn'' nếu hệ thống chỉ chạy test hữu hạn. Claim đúng hơn là một trong ba loại: (i) certificate về \emph{unfaithfulness} khi vi phạm điều kiện cần; (ii) bảo đảm không regression trên tập test đã quan sát; hoặc (iii) risk control thống kê dưới giả định exchangeability.
+\end{warningbox}
+
+\section{Khoảng trống nghiên cứu còn mở}
+
+\begin{table}[htbp]
+\centering
+\caption{Research gaps sau khi tính đến các paper mới nhất đến 31/07/2026.}
+\label{tab:gaps}
+\small
+\begin{tabularx}{\textwidth}{L{1.0cm} Y L{3.7cm} L{2.0cm}}
+\toprule
+\textbf{ID} & \textbf{Khoảng trống} & \textbf{Bằng chứng/động lực} & \textbf{Khả thi} \\
+\midrule
+G1 & \textbf{Certificate \(\rightarrow\) localized repair}: các verifier mạnh nhất hoặc chỉ detect, hoặc repair bằng prompt heuristic. Chưa rõ certificate nào nên sửa node nào và làm sao tránh phá phần đang đúng. & Falsification paper chỉ đánh giá detection; OptArgus chưa repair; ReLoop còn regression threshold và failure với lỗi cấu trúc lớn \parencite{li2026falsification,li2026optargus,lian2026reloop}. & \textbf{Cao} \\
+G2 & \textbf{Accept/repair/abstain có risk control}: ``không thấy lỗi'' đang bị dùng như ``đúng'', dù verifier có blind set. & Detection limits chứng minh blind set không rỗng; human-in-the-loop cần biết lúc nào phải can thiệp \parencite{li2026falsification,xiao2025survey}. & \textbf{Cao} \\
+G3 & \textbf{Multi-error và OOD verification}: benchmark injected error thường đơn lỗi; lỗi tự nhiên chồng lấp và khó định vị. & OptArgus nêu rõ controlled set dùng một hallucination mỗi case và chưa bao phủ tương tác đa lỗi \parencite{li2026optargus}. & \textbf{Cao} \\
+G4 & \textbf{Độc lập giữa spec extraction và verifier}: nhiều pipeline cùng phụ thuộc một LLM, nên sai semantics từ đầu có thể lan qua mọi stage. & Hạn chế được báo cáo bởi ReLoop và VeriSimpl \parencite{lian2026reloop,rahman2026verisimpl}. & Trung bình \\
+G5 & \textbf{Sound tests ngoài MILP}: nonlinear, stochastic, robust và multi-objective chưa có catalog điều kiện cần tương ứng. & Falsification battery giới hạn ở MILP/assertion vocabulary; OptArgus cũng chưa đại diện đầy đủ các lớp này \parencite{li2026falsification,li2026optargus}. & Thấp--trung bình \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+G1+G2 tạo thành một câu chuyện paper gọn và mới hơn: \emph{certificate không chỉ dùng để phát hiện, mà điều khiển minimal repair; còn khi certificate im lặng, một selective gate được hiệu chỉnh để tránh overclaim}.
+
+\section{Đề xuất chính: \method}
+
+\begin{proposalbox}
+\method là một pipeline training-free hoặc light-training cho LP/MILP. Hệ thống sinh model trong Requirement-Traceable IR, chạy một tập verifier độc lập, chuyển failure thành certificate có provenance, sửa đúng program slice liên quan, chạy regression trên toàn bộ lịch sử certificate, rồi dùng risk-calibrated gate để chọn \textsf{accept}, \textsf{repair} hoặc \textsf{abstain/escalate}.
+\end{proposalbox}
+
+\subsection{Định nghĩa bài toán}
+
+Từ mô tả \(p\), bộ trích xuất sinh Requirement IR
+\[
+R=\{r_i=(\text{id}_i,\text{entity}_i,\text{type}_i,\text{sense}_i,
+\text{value}_i,\text{source-span}_i)\}_{i=1}^{m}.
+\]
+Generator tạo candidate \(M_0\) trong một canonical IR. Mỗi variable, objective term và constraint của \(M_0\) phải trỏ về ít nhất một \(\text{id}_i\). Compiler \(C\) là deterministic:
+\[
+C(M)\longrightarrow \{\text{solver code},\text{LP/MPS artifact},\text{symbol table}\}.
+\]
+Thiết kế này tách lỗi formulation khỏi lỗi chép code; code không còn được LLM viết tự do sau khi IR đã được chấp nhận.
+
+Một verifier \(v_j\) trả về
+\[
+v_j(p,R,M)=
+\begin{cases}
+c_j=(\text{type},\text{requirement IDs},\text{model slice},\text{witness}), & \text{nếu phát hiện lỗi},\\
+\varnothing, & \text{nếu không phát hiện}.
+\end{cases}
+\]
+Với verifier sound, \(c_j\neq\varnothing\) là certificate rằng \(M\) vi phạm một điều kiện cần trong phạm vi giả định của \(v_j\). Ngược lại, \(c_j=\varnothing\) \emph{không} chứng minh \(M\) đúng.
+
+\subsection{Kiến trúc}
+
+\begin{figure}[htbp]
+\centering
+\begin{tikzpicture}[
+  >=Latex,
+  node distance=1.0cm,
+  every node/.style={font=\small},
+  box/.style={draw=navy, rounded corners=1.5mm, thick, align=center,
+              minimum height=1.25cm, text width=2.55cm, fill=softblue},
+  verify/.style={box, draw=teal, fill=softgreen},
+  decision/.style={box, draw=gold!90!black, fill=softgold}
+]
+  \node[box] (spec) at (0,0) {Natural-language\\specification \(p\)};
+  \node[box] (req) at (3.65,0) {Requirement-\\Traceable IR \(R\)};
+  \node[box] (model) at (7.30,0) {Candidate\\Model IR \(M_t\)};
+  \node[box] (compile) at (10.95,0) {Deterministic\\compiler(s)};
+
+  \node[verify] (verifier) at (10.95,-2.35) {Static + solver +\\sound behavioral tests};
+  \node[verify] (cert) at (7.30,-2.35) {Certificate graph\\+ witnesses};
+  \node[verify] (repair) at (3.65,-2.35) {Localized minimal\\patch search};
+  \node[decision] (gate) at (0,-2.35) {Risk gate:\\accept / abstain};
+
+  \draw[->,thick] (spec) -- (req);
+  \draw[->,thick] (req) -- (model);
+  \draw[->,thick] (model) -- (compile);
+  \draw[->,thick] (compile) -- (verifier);
+  \draw[->,thick] (verifier) -- (cert);
+  \draw[->,thick] (cert) -- (repair);
+  \draw[->,thick] (repair) -- (gate);
+  \draw[->,thick,teal] (repair.north) to[bend left=28]
+       node[above,sloped,font=\scriptsize]{re-verify + regression} (model.south);
+  \draw[->,thick,gold!90!black] (gate.west) -- ++(-0.8,0)
+       node[left,align=right,font=\scriptsize]{deploy hoặc\\human review};
+\end{tikzpicture}
+\caption{Kiến trúc đề xuất của \method. LLM được giới hạn ở extraction, generation và patch proposal; compilation và phần lớn verification là deterministic.}
+\label{fig:certopt}
+\end{figure}
+
+\subsection{Bốn thành phần tạo novelty}
+
+\subsubsection{Requirement-Traceable IR}
+
+Mỗi fragment mô hình mang provenance tới câu/phrase nguồn. Hệ thống áp dụng các check:
+
+\begin{itemize}
+  \item \textbf{Coverage}: requirement nào chưa có node tương ứng?
+  \item \textbf{Uniqueness}: một requirement có bị materialize hai lần không?
+  \item \textbf{Type/sense}: count variable có bị continuous; ``at least'' có bị đảo dấu?
+  \item \textbf{Binding}: số liệu trong source span có đi vào đúng entity/constraint?
+  \item \textbf{Compiler consistency}: hai backend từ cùng IR có tạo cùng objective, domains và số hàng/cột không?
+\end{itemize}
+
+Khác với một IR chỉ để generation, IR ở đây là \emph{đơn vị audit và repair}. Mục tiêu không phải tuyên bố extraction luôn đúng, mà làm sai lệch trở nên định vị được và có thể escalated.
+
+\subsubsection{Certificate graph}
+
+Kết hợp bốn nguồn bằng chứng:
+
+\begin{enumerate}
+  \item static schema/type/provenance checks;
+  \item execution, infeasibility/IIS, unbounded ray và numerical diagnostics;
+  \item sound falsification tests theo direction, curvature, crush, prohibitive limit, annihilation và exchange \parencite{li2026falsification};
+  \item LLM auditor hoặc simplification queries chỉ đóng vai trò \emph{supporting evidence}, không được gọi là proof \parencite{rahman2026verisimpl,li2026optargus}.
+\end{enumerate}
+
+Các certificate được gom thành đồ thị hai phía giữa requirement IDs và model nodes. Điều này trả lời trực tiếp câu hỏi ``lỗi nào liên quan tới phần nào'', thay vì đưa toàn bộ code và một traceback dài cho LLM.
+
+\subsubsection{Localized minimal repair}
+
+Với certificate set \(\Gamma_t\), chỉ program slice \(S(\Gamma_t)\) được mở để chỉnh sửa. Generator sinh \(K\) patch candidates \(M_t^{(1)},\ldots,M_t^{(K)}\). Candidate được xếp hạng theo:
+\[
+J(M') =
+\lambda_1 N_{\mathrm{cert}}(M')
++\lambda_2 N_{\mathrm{reg}}(M')
++\lambda_3 d_{\mathrm{edit}}(M',M_t)
++\lambda_4 \mathrm{cost}(M'),
+\]
+với thứ tự ưu tiên dạng lexicographic: loại certificate hiện tại, không làm tái xuất hiện certificate cũ, rồi mới tối thiểu hoá edit và solver cost.
+
+\textbf{Regression memory} lưu toàn bộ witness/test đã pass hoặc từng fail. Một patch chỉ được chấp nhận nếu:
+\[
+\Gamma_{\mathrm{history}}(M')=\varnothing
+\quad\text{và}\quad
+\mathrm{StaticInvariant}_{\bar S}(M',M_t)=\texttt{true},
+\]
+nghĩa là không tái phạm lỗi đã chứng kiến và không thay node ngoài repair slice. Đây là guarantee trên test history và syntactic locality, không phải chứng minh semantic equivalence toàn cục.
+
+\subsubsection{Calibrated accept--repair--abstain}
+
+Sau khi không còn certificate, hệ thống vẫn không được gọi candidate là ``verified correct''. Ta xây reliability score \(s(M)\) từ:
+
+\begin{itemize}
+  \item disagreement giữa các lần requirement extraction;
+  \item số/loại test có precondition hợp lệ và coverage đạt được;
+  \item bất đồng giữa verifier families;
+  \item repair instability và số vòng lặp;
+  \item cross-solver/compiler disagreement;
+  \item độ mới/OOD của requirement graph so với calibration set.
+\end{itemize}
+
+Trên calibration set có nhãn semantic error, chọn threshold \(\tau\) để tối đa hoá coverage với ràng buộc risk của accepted set không vượt \(\alpha\). Có thể dùng conformal risk control \parencite{angelopoulos2022crc} hoặc confidence-interval calibration cho selective answering \parencite{dong2026abstention}. Claim phải đi kèm giả định exchangeability và evaluation under shift.
+
+\subsection{Thuật toán ở mức paper}
+
+\begin{enumerate}
+  \item Trích xuất \(R\) nhiều lần hoặc bằng hai parser khác nhau; nếu disagreement vượt ngưỡng, yêu cầu làm rõ hoặc gắn cờ uncertainty.
+  \item Sinh \(M_0\) trong canonical IR và compile deterministic sang solver artifact.
+  \item Chạy verifier suite; chuyển mọi failure thành \(\Gamma_0\).
+  \item Nếu \(\Gamma_t\neq\varnothing\), dựng repair slice, sinh \(K\) minimal patches và chọn patch tốt nhất theo \(J\).
+  \item Re-run toàn bộ historical tests. Roll back nếu có regression.
+  \item Lặp đến khi hết certificate, hết budget hoặc không có patch cải thiện.
+  \item Tính \(s(M_t)\); \textsf{accept} nếu thỏa risk gate, ngược lại \textsf{abstain/escalate}. Không cưỡng ép sinh câu trả lời khi bằng chứng yếu.
+\end{enumerate}
+
+\subsection{Đóng góp có thể claim}
+
+Nếu thí nghiệm thành công, paper có thể claim bốn đóng góp sau:
+
+\begin{enumerate}
+  \item một formulation IR có requirement provenance, deterministic compilation và repair slices;
+  \item một thuật toán certificate-guided minimal repair với regression memory;
+  \item một selective deployment gate kiểm soát empirical/finite-sample risk thay vì dùng ``all tests pass'' như certificate correctness;
+  \item một benchmark protocol đa lỗi, natural errors và operator-held-out OOD để đánh giá detection--repair--abstention end-to-end.
+\end{enumerate}
+
+\section{Câu hỏi nghiên cứu và giả thuyết}
+
+\begin{description}[leftmargin=1.8em,labelindent=0em,labelsep=0.5em,style=nextline]
+  \item[\textbf{RQ1 -- Repair efficacy.}]
+  Certificate-guided localized repair có tăng semantic repair success so với regenerate, self-refine, ReLoop-style repair và full-code patching không?
+
+  \item[\textbf{H1.}]
+  \method tăng repair success và giảm edit distance, đặc biệt trên localized single/multi-error cases.
+
+  \item[\textbf{RQ2 -- Non-regression.}]
+  Regression memory và program slicing có giảm tỷ lệ ``sửa một lỗi, tạo lỗi khác'' không?
+
+  \item[\textbf{H2.}]
+  Historical re-verification giảm đáng kể regression rate so với prompt repair không có guard.
+
+  \item[\textbf{RQ3 -- Selective reliability.}]
+  Risk-calibrated gate có kiểm soát accepted-error rate ở mức mục tiêu trong in-distribution và suy giảm thế nào dưới shift?
+
+  \item[\textbf{H3.}]
+  Gate giảm selective risk so với confidence tự báo cáo, self-consistency và ``all tests pass'', với trade-off coverage đo được.
+
+  \item[\textbf{RQ4 -- Generalization.}]
+  Certificate-to-slice mapping có chuyển sang model family, solver backend và error operator chưa thấy không?
+
+  \item[\textbf{H4.}]
+  Mapping dựa trên requirement/model graph tổng quát hơn patch template phụ thuộc solver code.
+\end{description}
+
+\section{Thiết kế thí nghiệm}
+
+\subsection{Datasets}
+
+\begin{table}[htbp]
+\centering
+\caption{Bộ dữ liệu khuyến nghị. Chỉ dùng split đã được làm sạch hoặc tự audit lại.}
+\label{tab:datasets}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
+\begin{tabularx}{\textwidth}{L{3.0cm} L{2.2cm} Y Y}
+\toprule
+\textbf{Dataset} & \textbf{Vai trò} & \textbf{Điểm mạnh} & \textbf{Lưu ý} \\
+\midrule
+NL4Opt-clean & Calibration + basic LP & Có logical form/reference, dễ tạo mutation & Quá đơn giản nếu dùng một mình \parencite{ramamonjison2023nl4opt,xiao2025survey}. \\
+MAMO/IndustryOR-clean & Complex concrete modeling & Dùng rộng trong ORLM/SIRL/ReLoop & Phải dùng bản corrected và công bố exclusion rules \parencite{huang2025orlm,xiao2025survey}. \\
+RetailOpt-190 & Compositional stress test & Nhiều ràng buộc tương tác, silent failure rõ & Miền retail; cần split theo family \parencite{lian2026reloop}. \\
+NL4COP & Combinatorial OOD & 150 instances, 50 problem types & Kiểm tra khả năng vượt LP textbook \parencite{fang2026trival}. \\
+MIPLIB-NL & Industrial scale & Grounded trong MIPLIB, \(10^3\)--\(10^6+\) variables/constraints & Chi phí solver và IR comparison lớn \parencite{li2026miplibnl}. \\
+OptArgus artifacts & Detection/repair benchmark & Clean, injected và natural artifacts; taxonomy chi tiết & Controlled subset chủ yếu single-error \parencite{li2026optargus}. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Benchmark lỗi đề xuất}
+
+Từ mỗi clean reference \(M^\star\), tạo ba tầng:
+
+\begin{enumerate}
+  \item \textbf{Single-error controlled}: flip sense; omit constraint or objective term; wrong domain; wrong coefficient or entity; index truncation; incorrect Big-\(M\); reporting error.
+  \item \textbf{Multi-error compositions}: lấy 2--4 mutation từ các family khác nhau, kiểm tra tương tác và repair order.
+  \item \textbf{Natural errors}: thu output từ ít nhất ba model family và nhiều random seeds; chuyên gia gán nhãn một stratified subset.
+\end{enumerate}
+
+Split phải theo \emph{problem template/family}, không random theo instance. Thêm operator-held-out split: một số mutation operators chỉ xuất hiện ở test để đo generalization thật.
+
+\subsection{Ground truth và oracle}
+
+Không dùng một objective value làm oracle duy nhất. Semantic correctness label nên kết hợp:
+
+\begin{itemize}
+  \item variable/domain và constraint component matching;
+  \item graph/canonical-IR comparison sau khi chuẩn hoá permutation/scaling hợp lệ;
+  \item multi-instance behavioral agreement trên parametric family;
+  \item solver-generated counterexamples khi hai feasible sets khác nhau trong miền hữu hạn;
+  \item OR-expert review cho disagreement và natural artifacts.
+\end{itemize}
+
+Mỗi loại chỉ là một góc nhìn; báo cáo agreement và adjudication protocol. Với MIPLIB-NL lớn, có thể dùng structural reconstruction checks thay cho equivalence đầy đủ.
+
+\subsection{Baselines}
+
+\begin{enumerate}
+  \item direct generation và structured CoT;
+  \item full regeneration sau execution error;
+  \item self-refine/full-code repair;
+  \item ReLoop behavioral verification + repair \parencite{lian2026reloop};
+  \item VeriSimpl \parencite{rahman2026verisimpl};
+  \item TriVAL hoặc Opt-Verifier nếu code/license cho phép \parencite{fang2026trival,liu2026optverifier};
+  \item OptArgus detection + generic repair prompt \parencite{li2026optargus};
+  \item sound falsification battery không repair \parencite{li2026falsification};
+  \item \method không risk gate và \method đầy đủ.
+\end{enumerate}
+
+\subsection{Metrics}
+
+\paragraph{Generation.}
+Compile rate, solve rate, objective agreement và strict semantic accuracy. Hai metric đầu chỉ là diagnostics.
+
+\paragraph{Detection/localization.}
+Artifact-level AUROC/AUPRC; false-positive rate trên clean models; top-\(k\) localization accuracy; certificate coverage theo error type.
+
+\paragraph{Repair.}
+\[
+\mathrm{RepairSuccess}=
+\frac{\#\{\text{incorrect}\rightarrow\text{semantically correct}\}}
+     {\#\{\text{incorrect inputs}\}},
+\]
+\[
+\mathrm{RegressionRate}=
+\frac{\#\{\text{một lỗi được sửa nhưng tạo lỗi mới}\}}
+     {\#\{\text{attempted repairs}\}}.
+\]
+Bổ sung edit distance, số vòng, token cost, solver calls và wall-clock latency.
+
+\paragraph{Selective reliability.}
+Coverage, accepted-set error rate, risk--coverage curve, area under risk--coverage curve, và violation rate của target \(\alpha\). Báo cáo riêng in-distribution, operator-held-out, model-held-out và dataset-held-out.
+
+\paragraph{Thống kê.}
+Dùng paired bootstrap confidence interval cho accuracy/repair delta, McNemar test cho paired binary outcomes, và stratified reporting theo error family. Công bố seed, model version, solver version, tolerance và timeout.
+
+\subsection{Ablation bắt buộc}
+
+\begin{table}[htbp]
+\centering
+\caption{Ablation giúp xác định đóng góp thực sự.}
+\label{tab:ablations}
+\small
+\begin{tabularx}{\textwidth}{L{4.4cm} Y Y}
+\toprule
+\textbf{Bỏ thành phần} & \textbf{Câu hỏi trả lời} & \textbf{Metric nhạy nhất} \\
+\midrule
+Không Requirement provenance & Traceability có thật sự giúp localization? & Top-\(k\) localization, repair edit distance \\
+Không program slicing & Local repair có tốt hơn full-code rewrite? & Regression rate, token cost \\
+Không historical regression memory & Guard có ngăn tái phạm không? & Regression rate \\
+Chỉ LLM verifier & Solver/sound tests thêm giá trị gì? & FPR, OOD detection \\
+Chỉ sound battery & Supporting verifier có tăng recall không? & Recall với lỗi nằm trong blind set \\
+Không calibrated gate & Calibration có tốt hơn heuristic threshold? & Risk--coverage, target-risk violations \\
+Một compiler/solver & Differential backend có bắt implementation mismatch? & Code-level error detection \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Kết quả nào sẽ làm paper thuyết phục?}
+
+Paper không cần thắng mọi benchmark về raw accuracy. Một kết quả mạnh hơn là:
+
+\begin{itemize}
+  \item cùng semantic accuracy nhưng regression thấp hơn rõ rệt;
+  \item phát hiện/lokalize tốt hơn trên multi-error và operator-held-out;
+  \item đạt target accepted-error rate với coverage hữu ích;
+  \item certificate giúp giảm số token và số vòng repair;
+  \item phân tích failure cho thấy chính xác khi nào sound verifier im lặng và gate abstain.
+\end{itemize}
+
+Một negative result cũng có giá trị: nếu calibration vỡ mạnh dưới dataset shift, paper có thể chỉ ra điều kiện mà selective risk control không chuyển miền và đề xuất group/domain-conditional calibration.
+
+\section{Phạm vi MVP và các hướng thay thế}
+
+\subsection{MVP được khuyến nghị}
+
+\begin{itemize}
+  \item Chỉ LP/MILP.
+  \item Hai dataset sạch + RetailOpt-190; MIPLIB-NL là stress test tuỳ tài nguyên.
+  \item Một open model 7B/8B và một model mạnh hơn.
+  \item HiGHS/SCIP hoặc Gurobi nếu có license; deterministic IR compiler.
+  \item 8--12 mutation operators, sau đó multi-error composition.
+  \item Training-free repair; chỉ calibration layer cần labeled holdout.
+\end{itemize}
+
+MVP này đủ cho một paper systems/empirical nếu benchmark, evaluation và ablation chặt. Không nên đồng thời fine-tune generator, xây benchmark lớn, chứng minh nonlinear theory và triển khai human study trong paper đầu.
+
+\subsection{Hướng thay thế A: Nonlinear/Stochastic Falsification}
+
+Mở rộng catalog sound tests sang convex nonlinear, stochastic hoặc robust optimization. Đây là hướng có novelty lý thuyết cao: dùng value-function monotonicity, convex duality, KKT, uncertainty-set inclusion hoặc Pareto dominance để tạo necessary-condition tests. Tuy nhiên cần định nghĩa assertion vocabulary mới và chứng minh soundness/detection limits; phù hợp nếu nhóm mạnh về optimization theory.
+
+\subsection{Hướng thay thế B: Ambiguity-Aware Interactive Modeling}
+
+Thay vì sửa sau khi mô hình sai, hệ thống phát hiện underspecification và hỏi câu hỏi có expected information gain cao nhất. Đánh giá số câu hỏi, semantic accuracy sau đối thoại và human burden. Hướng này bám human-in-the-loop gap \parencite{xiao2025survey}, nhưng cần simulator hoặc user study đáng tin.
+
+\subsection{Hướng thay thế C: Certificate-Derived RL Reward}
+
+Biến certificate type và localized witness thành dense RL reward, thay vì chỉ syntax/feasibility/objective. So sánh với SIRL và EVOM \parencite{chen2025sirl,guan2026evom}. Hướng này có tiềm năng lớn nhưng compute cao và dễ reward hacking; nên làm sau khi verifier/repair benchmark đã ổn.
+
+\section{Rủi ro và cách giảm thiểu}
+
+\begin{table}[htbp]
+\centering
+\caption{Rủi ro chính của đề xuất.}
+\small
+\begin{tabularx}{\textwidth}{Y Y}
+\toprule
+\textbf{Rủi ro} & \textbf{Giảm thiểu} \\
+\midrule
+Requirement extraction sai từ đầu & Multi-parser disagreement; source-span provenance; human escalation; không gọi extraction là ground truth. \\
+Patch ``pass tests'' nhưng sai ngữ nghĩa & Operator-held-out/natural errors; supporting auditors; accepted-risk calibration; report blind cases. \\
+Calibration không chuyển miền & Dataset-held-out test; group conditional thresholds; báo coverage giảm thay vì ép accept. \\
+So sánh baseline không công bằng & Cùng base model, solver, timeout, sample budget và repaired benchmark; công bố prompt/code. \\
+Benchmark mutations quá nhân tạo & Kết hợp natural artifacts và expert annotation; báo riêng controlled/natural. \\
+IR làm mất modeling strategy hợp lệ & Cho phép nhiều canonical archetypes; semantic normalization; không ép một formulation duy nhất. \\
+Chi phí solver tăng & Budgeted test selection; cache probes; ưu tiên test theo predicted information gain. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Lộ trình 12 tuần}
+
+\begin{enumerate}
+  \item[\textbf{Tuần 1--2}] Chốt schema Requirement IR/Model IR; dựng compiler tới một solver; tái lập direct/structured baseline.
+  \item[\textbf{Tuần 3--4}] Tích hợp static checks và falsification battery; chuẩn hoá certificate format; unit test trên hand-crafted errors.
+  \item[\textbf{Tuần 5--6}] Xây mutation operators, multi-error composer và ground-truth evaluator; audit split dữ liệu.
+  \item[\textbf{Tuần 7--8}] Cài localized patch search, regression memory và rollback; chạy pilot để điều chỉnh repair budget.
+  \item[\textbf{Tuần 9}] Xây reliability score và calibration gate; freeze calibration split.
+  \item[\textbf{Tuần 10}] Main experiments, model-held-out và operator-held-out; thống kê.
+  \item[\textbf{Tuần 11}] Ablation, error analysis, cost analysis và visualizations.
+  \item[\textbf{Tuần 12}] Viết paper, artifact checklist và reproducibility package.
+\end{enumerate}
+
+\section{Khung paper có thể dùng ngay}
+
+\begin{enumerate}
+  \item \textbf{Introduction}: feasibility--correctness gap; verifier silence không phải correctness; certificate chưa được khai thác có hệ thống cho repair và abstention.
+  \item \textbf{Related Work}: generation/post-training; IR; verification; repair; selective risk.
+  \item \textbf{Problem Setup}: requirement traceability, semantic error, sound certificate, selective policy.
+  \item \textbf{\method}: IR, certificate graph, localized repair, regression memory, risk gate.
+  \item \textbf{Benchmark and Protocol}: cleaned data, multi-error, OOD splits, human adjudication.
+  \item \textbf{Experiments}: RQ1--RQ4, baselines, metrics và statistical tests.
+  \item \textbf{Analysis}: certificate coverage, blind set, calibration under shift, cost.
+  \item \textbf{Limitations}: MILP scope, extraction errors, finite test coverage, exchangeability.
+  \item \textbf{Conclusion}: từ ``generate and hope'' sang ``detect, repair, or abstain with evidence''.
+\end{enumerate}
+
+\section{Quyết định nghiên cứu được khuyến nghị}
+
+\begin{takeaway}
+\textbf{Research question cốt lõi:} ``Can sound or high-precision failure certificates be converted into localized, regression-safe repairs, and can the residual risk of verifier silence be controlled by selective abstention?''
+
+\textbf{Phạm vi tốt nhất cho paper đầu:} LP/MILP, training-free inference, requirement-traceable IR, multi-error benchmark và calibrated accept--repair--abstain.
+
+\textbf{Điểm khác biệt cần bảo vệ:} ReLoop đã có behavioral repair; OptArgus đã có taxonomy và detector; falsification-based verification đã có sound tests. Novelty của bạn nằm ở \emph{certificate-to-edit localization + historical regression protection + calibrated selective deployment}, được đánh giá trên multi-error/OOD protocol.
+\end{takeaway}
+
+\printbibliography[title={Tài liệu tham khảo}]
+
+\end{document}

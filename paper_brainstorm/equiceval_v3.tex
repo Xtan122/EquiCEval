@@ -1,0 +1,776 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{fontspec}
+\setmainfont{Times New Roman}
+\setmonofont[Scale=0.88]{Courier New}
+\usepackage{polyglossia}
+\setdefaultlanguage{vietnamese}
+\usepackage{microtype}
+\usepackage{mathtools,amssymb,amsmath,amsthm}
+\usepackage{booktabs,tabularx,array}
+\usepackage{float,needspace}
+\usepackage{enumitem}
+\usepackage{xspace}
+\usepackage[most]{tcolorbox}
+\usepackage{csquotes}
+\DeclareQuoteAlias{american}{vietnamese}
+\usepackage[
+  backend=biber,style=authoryear-comp,language=english,
+  maxcitenames=2,maxbibnames=99,uniquelist=false,
+  uniquename=init,giveninits=true,doi=true,url=true,isbn=false
+]{biblatex}
+\DeclareLanguageMapping{vietnamese}{english}
+\addbibresource{equiceval_improvement.bib}
+\usepackage[unicode,colorlinks=false,pdfborder={0 0 0}]{hyperref}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Định lý}[section]
+\newtheorem{proposition}[theorem]{Mệnh đề}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Định nghĩa}
+\newtheorem{example}[theorem]{Ví dụ}
+
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Nhận xét}
+
+\newtcolorbox{keybox}[1][]{
+  enhanced,breakable,colback=white,colframe=black,boxrule=0.5pt,
+  arc=1pt,left=4pt,right=4pt,top=3pt,bottom=3pt,
+  fonttitle=\bfseries\small,#1}
+
+\newtcolorbox{notebox}[1][]{
+  enhanced,breakable,colback=white,colframe=black,boxrule=0.9pt,
+  arc=0pt,left=4pt,right=4pt,top=3pt,bottom=3pt,
+  fonttitle=\bfseries\small,title=Lưu ý,#1}
+
+\setlength{\parindent}{1.5em}
+\setlength{\parskip}{0.35em}
+\setlength{\emergencystretch}{3em}
+\clubpenalty=10000
+\widowpenalty=10000
+\raggedbottom
+\AtBeginBibliography{\raggedright}
+\renewcommand{\arraystretch}{1.18}
+\setlist[itemize]{leftmargin=1.6em,itemsep=0.3em,topsep=0.3em}
+\setlist[enumerate]{leftmargin=1.8em,itemsep=0.3em,topsep=0.3em}
+\setcounter{tocdepth}{2}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+
+\newcommand{\method}{\textsf{EquiCEval}\xspace}
+\newcommand{\GT}{M^{\star}}
+\newcommand{\LLM}{\widehat{M}}
+\newcommand{\Pgt}{P^{\star}}
+\newcommand{\Pllm}{\widehat{P}}
+
+\title{\vspace{-0.8cm}
+  \textbf{\method: Đánh giá thành phần mô hình tối ưu do LLM sinh ra}\\[0.4em]
+  \normalsize\textit{Đề cương nghiên cứu và kế hoạch thực nghiệm}
+}
+\author{Kiều Văn Tuyên}
+\date{Cập nhật tháng 9 năm 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Khi một LLM dịch yêu cầu bài toán thành mô hình tối ưu tuyến tính (LP/MILP),
+cách đánh giá hiện tại có hai điểm yếu: phạt oan những cách viết tương đương về mặt toán học,
+và bỏ sót lỗi trong vùng miền nghiệm chưa được kiểm tra.
+\method giải quyết cả hai bằng ba bước: (1)~chuẩn hóa và ánh xạ biến để nhận ra
+các cách viết tương đương, (2)~truy vấn bộ giải để tìm phương án cụ thể chứng minh
+mô hình sai, và (3)~xuất phiếu chẩn đoán theo từng thành phần thay vì một điểm số duy nhất.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%%=============================================================================
+\section{Ý tưởng qua một ví dụ}
+%%=============================================================================
+
+Giả sử yêu cầu thật là $0 \leq x \leq 8$, và LLM có thể viết ra ba mô hình:
+\begin{itemize}
+  \item $0 \leq x \leq 8$: đúng cả cách viết lẫn ý nghĩa.
+  \item $0 \leq x$ và $2x \leq 16$: cách viết khác nhưng miền nghiệm giống hệt.
+  \item $0 \leq x \leq 10$: cho phép $x = 9$, trái với giới hạn thật.
+\end{itemize}
+
+So chuỗi ký tự sẽ phạt oan mô hình thứ hai. Với mô hình thứ ba,
+phương án $x = 9$ là \emph{phản ví dụ}: nó được LLM cho phép nhưng yêu cầu thật cấm.
+\method tìm và giải thích những bằng chứng như vậy.
+
+\begin{keybox}[title={Thuật ngữ dùng trong tài liệu}]
+\begin{description}[leftmargin=1em,labelsep=0.5em,style=nextline]
+  \item[Mô hình tối ưu (formulation).] Tập biến quyết định, ràng buộc và hàm mục tiêu.
+  \item[Miền nghiệm khả thi.] Tập tất cả phương án thỏa mọi ràng buộc.
+  \item[Bộ giải (solver).] Phần mềm tìm nghiệm tối ưu.
+  \item[Phản ví dụ.] Điểm cụ thể chứng minh hai mô hình cho kết quả khác nhau.
+\end{description}
+\textbf{Mô hình tham chiếu} ($\GT$): mô hình chuẩn.
+\textbf{Mô hình cần đánh giá} ($\LLM$): mô hình do LLM sinh ra.
+\end{keybox}
+
+%%=============================================================================
+\section{Phạm vi}
+%%=============================================================================
+
+\method tập trung vào \emph{đánh giá} mô hình LP/MILP --- không xây hệ thống sinh mô hình
+hay sửa lỗi tự động.
+
+\begin{table}[H]
+\centering
+\caption{Ranh giới của \method.}
+\label{tab:scope}
+\small
+\begin{tabularx}{\textwidth}{L{3.2cm} Y Y}
+\toprule
+ & \textbf{Trong phạm vi} & \textbf{Ngoài phạm vi} \\
+\midrule
+Mục tiêu & Đánh giá mô hình LP/MILP có mô hình tham chiếu & Tự động sinh mô hình \\
+Đóng góp & Đối chiếu thành phần, đo sai khác, phản ví dụ & Sửa lỗi tự động \\
+Dùng LLM & Sinh mô hình để đánh giá & Huấn luyện tinh chỉnh LLM \\
+Kết quả & Phát hiện và định vị lỗi & Chứng minh mô hình đúng tuyệt đối \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%%=============================================================================
+\section{Ba vấn đề của phương pháp cũ}
+%%=============================================================================
+
+Refai và Ahmed~\parencite{refai2025component} đã đúng khi tách biến, ràng buộc và hàm mục tiêu
+để xác định lỗi ở đâu, thay vì chỉ so giá trị tối ưu. Nhưng cách đo còn ba điểm yếu.
+
+\begin{enumerate}
+  \item \textbf{Phạt oan ràng buộc tương đương.}
+    Hai ràng buộc $6x + 4y \leq 12$ và $3x + 2y \leq 6$ định nghĩa cùng miền nghiệm.
+    So từng hệ số sẽ cho sai số khác 0 dù không có lỗi thực sự.
+    Điều tương tự xảy ra khi đổi tên biến, nhân hệ số với hằng dương,
+    hoặc chuyển cận biến thành ràng buộc tường minh.
+
+  \item \textbf{Bỏ sót lỗi trong vùng chưa lấy mẫu.}
+    RMSE tính trên 100 điểm ngẫu nhiên có thể gần 0 dù mô hình thiếu một ràng buộc
+    quan trọng, nếu vùng sai khác nằm ở góc miền nghiệm chưa được kiểm tra.
+
+  \item \textbf{Thống kê chưa đủ độ bền.}
+    Tương quan cao giữa Cons-RMSE và độ chênh giá trị tối ưu có thể bị chi phối
+    bởi vài điểm ngoại vi. Ngoài ra, công thức gốc chia cho $|z^\star|$ gây lỗi
+    khi $z^\star = 0$ (ví dụ: bài Aircraft Landing).
+\end{enumerate}
+
+%%=============================================================================
+\section{Nghiên cứu liên quan}
+%%=============================================================================
+
+\method lấy Refai--Ahmed làm đối tượng cải tiến trực tiếp.
+Bốn công trình dưới đây cung cấp ý tưởng thiết kế và làm phương pháp đối chứng.
+
+\begin{table}[H]
+\centering
+\caption{Cách \method dùng từng nghiên cứu liên quan.}
+\label{tab:sota}
+\footnotesize
+\begin{tabularx}{\textwidth}{Y Y Y}
+\toprule
+\textbf{Nghiên cứu} & \textbf{Ý tưởng dùng lại} & \textbf{Vai trò trong \method} \\
+\midrule
+CIR \cite{lyu2026cir}
+  & Biểu diễn trung gian chuẩn hóa
+  & Cơ sở chuẩn hóa, giảm phạt oan \\
+EquivaMap \cite{zhai2025equivamap}
+  & Kiểm tra tương đương hai mô hình
+  & Phương pháp đối chứng trực tiếp \\
+ReLoop \cite{lian2026reloop}
+  & Kiểm tra hành vi bằng nhiễu loạn tham số
+  & Đối chứng với truy vấn miền nghiệm \\
+Falsification \cite{li2026falsification}
+  & Phép thử bác bỏ có bằng chứng
+  & Đối chiếu khả năng phát hiện lỗi \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+EquivaMap phù hợp khi cần kiểm tra tương đương toàn diện.
+Falsification phù hợp khi không có mô hình tham chiếu.
+\method cần mô hình tham chiếu và tập trung vào chẩn đoán theo từng thành phần
+kèm bằng chứng từ bộ giải.
+
+%%=============================================================================
+\section{Phương pháp: \method}
+%%=============================================================================
+
+\subsection{Khái niệm cơ bản}
+
+\begin{definition}[Mô hình tối ưu]
+Một mô hình gồm $(x, D, f, \mathcal{C}, \sigma)$: biến quyết định $x$, miền kiểu $D$
+(liên tục hay nguyên), hàm mục tiêu $f$, tập ràng buộc $\mathcal{C}$,
+và chiều tối ưu $\sigma$.
+Miền nghiệm khả thi:
+\[
+  F(M) = \{x \in D :\ x \text{ thỏa mọi ràng buộc trong } \mathcal{C}\}.
+\]
+\end{definition}
+
+Hai mô hình được so sánh trong cùng không gian biến thông qua ánh xạ $\pi^\star$
+và $\widehat\pi$ vào không gian chung $\mathcal{Y}$. Đặt:
+\[
+  \Pgt = \pi^\star(F(\GT)) \cap B, \qquad \Pllm = \widehat\pi(F(\LLM)) \cap B,
+\]
+trong đó $B$ là hộp hữu hạn xác định trước để kiểm tra.
+
+\subsection{Kiến trúc quy trình}
+
+Sáu mô-đun xử lý tuần tự:
+
+\begin{equation*}
+  \underbrace{\text{M0}}_{\text{Kiểm tra}}
+  \to\underbrace{\text{M1}}_{\text{Chuẩn hóa}}
+  \to\underbrace{\text{M2}}_{\text{Ghép cặp}}
+  \to\underbrace{\text{M3}}_{\text{Đo hành vi}}
+  \to\underbrace{\text{M4}}_{\text{Phản ví dụ}}
+  \to\underbrace{\text{M5}}_{\text{Mục tiêu}}
+\end{equation*}
+
+M0 và M1 kiểm tra điều kiện đầu vào.
+M4 tìm phản ví dụ bằng bộ giải, độc lập với kết quả ghép cặp ở M2--M3.
+
+\subsection{M0: Kiểm tra đầu vào}
+
+Trước khi xử lý, M0 xác định mô hình có đọc được, ánh xạ biến có thành công,
+và có nghiệm hay không. Kết quả lưu trong bộ trạng thái:
+\[
+  S = (S_{\mathrm{parse}},\; S_{\mathrm{map}},\; S_{\mathrm{feas}},\;
+       S_{\mathrm{bound}},\; S_{\mathrm{solve}}).
+\]
+
+\begin{table}[H]
+\centering
+\caption{Các trạng thái của M0.}
+\label{tab:states}
+\small
+\begin{tabularx}{\textwidth}{L{3.2cm} L{3.5cm} Y}
+\toprule
+\textbf{Trạng thái} & \textbf{Giá trị} & \textbf{Hành động} \\
+\midrule
+$S_{\mathrm{parse}}$ & Đọc được / Lỗi cú pháp
+  & Lỗi: dừng, báo ngay \\
+$S_{\mathrm{map}}$ & Thành công / Thất bại / Không hỗ trợ
+  & Thất bại: bỏ qua M4, báo chỉ số có điều kiện \\
+$S_{\mathrm{feas}}$ & Có nghiệm / Vô nghiệm / Chưa biết
+  & Vô nghiệm trong khi tham chiếu có nghiệm: báo lỗi ngay \\
+$S_{\mathrm{bound}}$ & Bị chặn / Không giới hạn
+  & Không giới hạn: chỉ truy vấn trong vùng $B$ \\
+$S_{\mathrm{solve}}$ & Đã xác nhận / Hết thời gian / Lỗi số
+  & Hết thời gian: báo ``chưa kết luận'' \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{M1: Chuẩn hóa}
+
+M1 đưa các cách viết tương đương về cùng một dạng để tránh phạt oan.
+Mỗi ràng buộc được xử lý qua các bước:
+\begin{enumerate}
+  \item Đối chiếu ý nghĩa và đơn vị biến.
+  \item Chuyển về dạng $g(x) \leq 0$ hoặc $h(x) = 0$.
+  \item Chuyển hằng số về cùng một phía.
+  \item Chia cho $q_c = \max\{\|a_c\|_1, |b_c|\}$ để chuẩn hóa tỉ lệ.
+  \item Sắp xếp biến theo thứ tự từ điển.
+\end{enumerate}
+
+\begin{example}[Chuẩn hóa loại phạt oan]
+$c_1: 6x + 4y \leq 12$ và $c_2: 3x + 2y \leq 6$.
+Sau chuẩn hóa: $c_1 \Rightarrow \tfrac{1}{2}x + \tfrac{1}{3}y \leq 1$
+và $c_2 \Rightarrow \tfrac{1}{2}x + \tfrac{1}{3}y \leq 1$.
+Hai ràng buộc giống hệt nhau --- không phạt oan.
+\end{example}
+
+\subsection{M2: Ghép cặp ràng buộc}
+
+M2 xác định ràng buộc nào của mô hình tham chiếu tương ứng với ràng buộc nào
+của mô hình cần đánh giá, và gán nhãn cho từng cặp.
+
+\begin{table}[H]
+\centering
+\caption{Nhãn khi đối chiếu ràng buộc.}
+\label{tab:labels}
+\small
+\begin{tabularx}{\textwidth}{L{4.5cm} Y}
+\toprule
+\textbf{Nhãn} & \textbf{Ý nghĩa} \\
+\midrule
+Giống hệt & Biểu diễn giống nhau sau chuẩn hóa. \\
+Tương đương trong ngữ cảnh & Bộ giải xác nhận tương đương khi có các ràng buộc còn lại. \\
+Tương đương theo nhóm & Một nhóm ràng buộc bên này tương đương với nhóm bên kia. \\
+Có phản ví dụ & Bộ giải tìm được điểm chứng minh khác nhau. \\
+Chưa kết luận & Bộ giải hết thời gian hoặc chưa đủ bằng chứng. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Quy trình ưu tiên kiểm tra đơn giản trước, chỉ gọi bộ giải khi cần.
+Ràng buộc dư (suy ra từ ràng buộc khác) không bị coi là lỗi.
+
+Để kiểm tra hai ràng buộc $c_i^\star$ và $\hat{c}_j$ có tương đương không,
+\method giải bài toán tìm điểm vi phạm tối đa theo mỗi chiều:
+\begin{equation}
+  \label{eq:eta}
+  \eta_{i \to j} = \max_{\substack{y \in B \\ y\;\text{thỏa}\;c_i^\star}}
+  v_{\hat{c}_j}(y), \qquad
+  \eta_{j \to i} = \max_{\substack{y \in B \\ y\;\text{thỏa}\;\hat{c}_j}}
+  v_{c_i^\star}(y),
+\end{equation}
+trong đó $v_c(y)$ là mức vi phạm chuẩn hóa của ràng buộc $c$ tại điểm $y$:
+\begin{equation}
+  v_c(y) =
+  \begin{cases}
+    \max(0, g_c(y)) / q_c, & \text{nếu ràng buộc là } g_c(y) \leq 0, \\
+    |g_c(y)| / q_c,        & \text{nếu ràng buộc là } g_c(y) = 0.
+  \end{cases}
+\end{equation}
+
+Ví dụ: $x \leq 8$ với $x = 10$ cho $v = (10 - 8)/8 = 0.25$.
+Nếu cả $\eta_{i \to j}$ và $\eta_{j \to i}$ đều nhỏ hơn ngưỡng $\tau$,
+ghi \emph{tương đương trong ngữ cảnh}; ngược lại ghi phản ví dụ.
+
+\subsection{M3: Đo sai lệch hành vi}
+
+M3 kiểm tra nhanh bằng $N$ điểm mẫu trong $B$, tính hai chỉ số mô tả:
+\begin{equation}
+  D_{\mathrm{sat}} =
+  \frac{1}{N}\sum_{i=1}^{N}
+  \mathbf{1}\!\left[\operatorname{sat}_{c^\star}(y^{(i)})
+  \neq \operatorname{sat}_{\hat{c}}(y^{(i)})\right],
+\end{equation}
+\begin{equation}
+  D_{\mathrm{margin}} =
+  \sqrt{\frac{1}{N}\sum_{i=1}^{N}
+  \bigl(v_{c^\star}(y^{(i)}) - v_{\hat{c}}(y^{(i)})\bigr)^2}.
+\end{equation}
+
+$D_{\mathrm{sat}}$ là tỷ lệ điểm mà hai ràng buộc cho kết quả trái chiều;
+$D_{\mathrm{margin}}$ là mức vi phạm chênh lệch trung bình.
+Đây là chỉ số mô tả bổ sung, không thay thế kết luận từ bộ giải.
+
+\subsection{M4: Tìm phản ví dụ bằng bộ giải}
+
+Thay vì kiểm tra điểm đã chọn sẵn, M4 hỏi bộ giải:
+``Có phương án nào được bên này cho phép nhưng bên kia cấm không?''
+Bộ giải kiểm tra cả hai chiều:
+
+\begin{definition}[Hai hướng sai khác]
+\label{def:delta}
+\textit{Hướng $\to$} --- tìm phương án mà $\LLM$ cho phép nhưng $\GT$ cấm:
+\begin{equation}
+  \Delta_{\to} = \max_{c_i^\star \in \mathcal{C}^\star}
+  \max_{y \in \Pllm}\, v_{c_i^\star}(y).
+\end{equation}
+
+\textit{Hướng $\leftarrow$} --- tìm phương án mà $\GT$ cho phép nhưng $\LLM$ cấm:
+\begin{equation}
+  \Delta_{\leftarrow} = \max_{\hat{c}_j \in \widehat{\mathcal{C}}}
+  \max_{y \in \Pgt}\, v_{\hat{c}_j}(y).
+\end{equation}
+\end{definition}
+
+\begin{table}[H]
+\centering
+\caption{Đọc kết quả hai hướng.}
+\label{tab:diagnosis}
+\small
+\begin{tabularx}{\textwidth}{C{2.8cm} C{2.8cm} Y}
+\toprule
+$\Delta_{\to}$ & $\Delta_{\leftarrow}$ & Kết luận \\
+\midrule
+$\leq \tau$ & $\leq \tau$ & Không tìm được vi phạm đáng kể ở cả hai chiều. \\
+$> \tau$ & $\leq \tau$ & $\LLM$ cho phép phương án mà $\GT$ cấm (miền rộng hơn). \\
+$\leq \tau$ & $> \tau$ & $\GT$ cho phép phương án mà $\LLM$ cấm (miền hẹp hơn). \\
+$> \tau$ & $> \tau$ & Sai khác cả hai chiều. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\begin{example}[LLM bỏ sót $x \leq 8$]
+$\GT$: $x + y \leq 10,\; x \leq 8,\; y \leq 8$.
+$\LLM$: $x + y \leq 10,\; y \leq 8$.
+
+Bộ giải tìm điểm $(10, 0)$ trong $\Pllm$ vi phạm $x \leq 8$:
+$v = (10 - 8)/8 = 0.25 > \tau \Rightarrow \Delta_{\to} = 0.25$.
+\end{example}
+
+\begin{example}[LLM siết cận thành $x \leq 5$]
+$\GT$: $x + y \leq 10,\; x \leq 8$.
+$\LLM$: $x + y \leq 10,\; x \leq 5$.
+
+Bộ giải tìm điểm $(8, 0)$ trong $\Pgt$ vi phạm $x \leq 5$:
+$v = (8 - 5)/5 = 0.6 > \tau \Rightarrow \Delta_{\leftarrow} = 0.6$.
+\end{example}
+
+\subsection{M5: Đánh giá hàm mục tiêu}
+
+Hai mô hình có thể cùng miền nghiệm nhưng chọn phương án tốt nhất khác nhau.
+M5 kiểm tra ba câu hỏi:
+\begin{enumerate}
+  \item Hệ số có đúng sau quy đổi đơn vị?
+  \item Giá trị hàm mục tiêu chênh lệch tối đa bao nhiêu trên miền chung?
+  \item Hai mô hình có chọn cùng phương án tối ưu không?
+\end{enumerate}
+
+Tiêu chí chính của bài là \emph{tương đương affine dương}: sau khi đưa hai bài
+toán về cùng chiều tối ưu, tồn tại $a>0$ và $b$ sao cho
+\begin{equation}
+  f^\star(y) = a\,\tilde{f}(y) + b \qquad \text{với mọi } y.
+\end{equation}
+Tiêu chí này chấp nhận đổi đơn vị, nhân toàn bộ mục tiêu với một hệ số dương và
+cộng một mốc cố định, vì chúng không thay đổi thứ tự tốt--xấu. Chúng tôi báo thêm
+hai phân tích phụ: (i) giá trị mục tiêu bằng tuyệt đối; và (ii) chỉ cùng tập
+nghiệm tối ưu. Phân tích (ii) rộng hơn: hai hàm không affine vẫn có thể tình cờ
+chọn cùng một nghiệm trên một instance.
+
+Đặt $P_\cap = \Pgt \cap \Pllm$, $f^\star$ và $\tilde{f}$ là hai hàm sau đổi đơn vị.
+
+\textbf{Sai lệch giá trị:}
+\begin{equation}
+  \Delta_{\mathrm{value}} = \max_{y \in P_\cap} \frac{|f^\star(y) - \tilde{f}(y)|}{s_f},
+  \qquad s_f = \max\{1,\; \|a_{f^\star}\|_1,\; |b_{f^\star}|\}.
+\end{equation}
+
+\textbf{Thiệt hại quyết định chéo} --- đo mức độ thiệt khi dùng nghiệm của mô hình
+này thay cho mô hình kia:
+\begin{equation}
+  R_{\star \leftarrow \LLM} = \max_{y \in \widehat{A}}
+  \frac{f^\star(y) - z^\star_\cap}{s_f}, \qquad
+  R_{\LLM \leftarrow \star} = \max_{y \in A^\star}
+  \frac{\tilde{f}(y) - \tilde{z}_\cap}{s_f},
+\end{equation}
+với $A^\star = \arg\min_{y \in P_\cap} f^\star(y)$,
+$\widehat{A} = \arg\min_{y \in P_\cap} \tilde{f}(y)$.
+Cả hai bằng 0 khi và chỉ khi hai mô hình cùng tập phương án tối ưu.
+
+\begin{example}[Hai hàm chọn nghiệm trái ngược]
+$f^\star = 3x + 2y$, $\tilde{f} = 2x + 3y$, miền $P_\cap: x + y = 6,\; x, y \geq 0$.
+
+$f^\star$ tốt nhất tại $(0, 6)$; $\tilde{f}$ tốt nhất tại $(6, 0)$.
+$R_{\star \leftarrow \LLM} = (18 - 12)/5 = 1.2$ --- hai hàm chọn nghiệm hoàn toàn trái ngược.
+\end{example}
+
+\subsection{Đầu ra: phiếu chẩn đoán}
+
+Thay vì một điểm số duy nhất, \method trả phiếu chẩn đoán gồm:
+\begin{equation}
+  \begin{aligned}
+  \mathcal{E}(\GT, \LLM) = \bigl(
+    &S,\;\mathrm{MapCoverage},\;\mathrm{MatchCoverage},\\
+    &D_{\mathrm{sat}},\; D_{\mathrm{margin}},\;
+    \Delta_{\to},\; \Delta_{\leftarrow},\; \Delta_{\mathrm{value}},\\
+    &R_{\star \leftarrow \LLM},\; R_{\LLM \leftarrow \star},\;
+    \mathrm{Gap}_{\mathrm{sym}},\; Q_{\mathrm{total}}
+  \bigr).
+  \end{aligned}
+\end{equation}
+
+$\mathrm{MapCoverage}$: tỷ lệ biến tham chiếu có ánh xạ thành công.
+$\mathrm{MatchCoverage}$: tỷ lệ ràng buộc tham chiếu được đối chiếu có chứng nhận.
+$Q_{\mathrm{total}}$: tổng số lần gọi bộ giải.
+
+%%=============================================================================
+\section{Câu hỏi nghiên cứu}
+%%=============================================================================
+
+\begin{description}[leftmargin=1.8em,labelsep=0.5em,style=nextline]
+  \item[\textbf{RQ1 --- Giảm phạt oan.}]
+  \method có giảm tỷ lệ phạt oan trên các mô hình tương đương so với phương pháp gốc?
+
+  \item[\textbf{RQ2 --- Phát hiện lỗi.}]
+  Truy vấn có hướng có phát hiện lỗi miền nghiệm tốt hơn lấy mẫu ngẫu nhiên,
+  đặc biệt khi giá trị tối ưu không đổi?
+
+  \item[\textbf{RQ3 --- Ý nghĩa từng chỉ số.}]
+  Từng chỉ số liên hệ thế nào với nhãn lỗi và chất lượng quyết định?
+  Mối liên hệ đó có ổn định khi đổi họ bài toán?
+
+  \item[\textbf{RQ4 --- Thứ hạng LLM.}]
+  Cách đánh giá có thay đổi kết luận về LLM nào sinh mô hình chính xác hơn?
+
+  \item[\textbf{RQ5 --- Chi phí và hiệu quả.}]
+  Truy vấn có hướng tốn thêm bao nhiêu, và loại lỗi nào thì đáng bỏ chi phí đó?
+\end{description}
+
+RQ1, RQ2 và RQ5 là chính; RQ3 và RQ4 bổ sung khi đủ dữ liệu.
+
+%%=============================================================================
+\section{Bộ dữ liệu đánh giá}
+%%=============================================================================
+
+\subsection{Cấu trúc ba tập}
+
+\begin{table}[H]
+\centering
+\caption{Cấu trúc bộ dữ liệu đánh giá dự kiến.}
+\label{tab:benchmark}
+\small
+\begin{tabularx}{\textwidth}{L{3.2cm} C{1.8cm} C{2cm} Y L{2.5cm}}
+\toprule
+\textbf{Tập} & \textbf{Thử nhỏ} & \textbf{Đầy đủ} & \textbf{Mục tiêu} & \textbf{Nguồn} \\
+\midrule
+Cặp tương đương & 100--150 & 400--600 & RQ1 & Biến đổi được chứng nhận \\
+Lỗi có kiểm soát & 250--400 & 800--1200 & RQ2, RQ5 & Phép sửa có nhãn \\
+Đầu ra LLM thực & 100--150 & 400--600 & RQ3, RQ4 & Nhiều LLM và cách đặt câu lệnh \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Mục tiêu: 50--100 bài toán gốc thuộc ít nhất 10 họ bài toán.
+
+\subsection{Hai nhóm trọng tâm}
+
+\textbf{Nhóm A --- Khác cách viết, cùng ý nghĩa.}
+Ví dụ $x \leq 8$ và $2x \leq 16$, hoặc thêm ràng buộc được suy ra.
+Công cụ chấm không nên phạt những cặp này.
+
+\textbf{Nhóm B --- Cùng giá trị tối ưu, khác miền nghiệm.}
+Ví dụ cùng tối thiểu hóa $x$: $\GT$ có $0 \leq x \leq 8$, $\LLM$ có $0 \leq x \leq 10$.
+Cả hai đạt tối ưu 0 tại $x = 0$, nhưng $x = 9$ chỉ được $\LLM$ cho phép.
+So giá trị tối ưu không phân biệt được; truy vấn miền nghiệm phát hiện được.
+
+\subsection{Xây dựng dữ liệu}
+
+\textbf{Biến đổi tạo cặp tương đương:}
+\begin{itemize}
+  \item Đổi tên biến và hoán vị chỉ số.
+  \item Nhân ràng buộc với hằng số dương.
+  \item Chuyển cận biến thành ràng buộc tường minh.
+  \item Gộp/tách ràng buộc khi đã chứng minh tương đương.
+  \item Thêm ràng buộc dư được suy ra.
+\end{itemize}
+
+\textbf{Phép sửa tạo lỗi kiểm thử:}
+\begin{itemize}
+  \item Bỏ sót ràng buộc hoặc hệ số.
+  \item Đổi chiều bất đẳng thức hoặc đổi dấu.
+  \item Sai hệ số, hằng số hoặc đơn vị.
+  \item Sai kiểu biến (nhị phân thay liên tục).
+  \item Sai tập chỉ số hoặc công thức Big-$M$.
+\end{itemize}
+
+Nhãn tham chiếu được xác minh bởi hai người đánh giá độc lập.
+Báo tỷ lệ đồng thuận và hệ số Cohen $\kappa$.
+
+%%=============================================================================
+\section{Thiết kế thực nghiệm}
+%%=============================================================================
+
+\subsection{Dùng EquivaFormulation làm dữ liệu thực nghiệm}
+
+EquivaFormulation là bộ dữ liệu gồm các bài toán tối ưu gốc kèm nhiều biến thể
+được tạo ra theo các quy tắc đã định. Chúng tôi dùng đây làm nguồn dữ liệu thực nghiệm,
+còn EquivaMap \parencite{zhai2025equivamap} được dùng làm phương pháp đối chứng.
+
+\textbf{Ba quy tắc để dùng dữ liệu này một cách công bằng:}
+
+\textbf{(D1) Ánh xạ tên biến được cấp tường minh, không phải đáp án.}
+EquivaFormulation cung cấp kèm file \texttt{variable\_mappings.json} xác định tương ứng
+giữa tên biến dài trong bài gốc (ví dụ: \texttt{NumberOfCars}) và tên biến ngắn
+trong biến thể (ví dụ: \texttt{r}).
+File này chỉ đề xuất hai hệ tọa độ cần so sánh; nó không chứng minh hai mô hình
+tương đương. Trong thí nghiệm ``có mapping'', file được cấp làm đầu vào. Trong
+thí nghiệm ``không mapping'', công cụ chỉ dùng phép dò một--một bảo thủ. So sánh
+này đo ích lợi của mapping; không được dùng để khẳng định công cụ đã hiểu ngữ nghĩa
+của mọi tên biến.
+
+\textbf{(D2) Phân biệt rõ ``Labeled'' và ``Full''.}
+Một cặp chỉ thuộc tập \textbf{Labeled} khi nhãn theo tiêu chí của bài này được
+xác minh độc lập. \textbf{Full} là toàn bộ cặp đọc được từ nguồn dữ liệu, gồm cả
+cặp chưa có nhãn hoặc chưa hỗ trợ. Vì vậy, ``Labeled'' không có nghĩa đơn giản là
+``bỏ đúng hai loại biến thể''. Ánh xạ nhiều--một, biến phụ nguyên, hoặc candidate
+không có phép đổi tọa độ một--một có thể phải để \emph{chưa kết luận}. FPR và Recall
+chỉ dùng Labeled; Full chỉ báo độ phủ và số cặp chưa xử lý.
+
+\textbf{(D3) Tách ba ý nghĩa của hàm mục tiêu.}
+Tiêu chí chính chấp nhận $f(x) \Leftrightarrow k f(x)+b$ với $k>0$, sau khi đưa
+min/max về cùng chiều; do đó phép nhân toàn bộ mục tiêu với hằng số dương không
+phải lỗi. Bảng phụ ``giá trị tuyệt đối'' vẫn phân biệt hai hàm khi con số mục tiêu
+khác nhau. Bảng phụ ``argmin'' chỉ hỏi chúng có chọn cùng tập nghiệm tối ưu hay
+không. Mỗi bảng dùng tệp nhãn được tạo riêng theo đúng tiêu chí; không dùng nhãn
+của bảng này để chấm bảng khác.
+
+\textbf{Kiểm toán trước khi báo số liệu.}
+Các kết quả tạo trước khi áp dụng ba quy tắc trên chỉ là nhật ký để đối chiếu, không
+phải bằng chứng trong bài. Pipeline hiện tại không sao chép cận của candidate sang
+reference, không thay vô cực bằng một cận lớn, không khử tùy tiện biến phụ nguyên,
+và phát lại phản ví dụ trên mô hình gốc. Bảng FPR/Recall chỉ được lập lại sau khi
+toàn bộ cặp đã được relabel và chạy lại bằng phiên bản này.
+
+\subsection{Các phương pháp đối chứng}
+
+\begin{enumerate}
+  \item Bản tái triển khai Refai--Ahmed~\parencite{refai2025component}.
+  \item So khớp biểu diễn giống hệt (exact match).
+  \item Chuẩn hóa nhưng không dùng bộ giải kiểm tra ngữ cảnh.
+  \item EquivaMap~\parencite{zhai2025equivamap} trên các trường hợp tương thích.
+  \item Nhiễu loạn tham số (kiểu ReLoop~\parencite{lian2026reloop}).
+  \item \method đầy đủ.
+\end{enumerate}
+
+\subsection{Chỉ số đánh giá}
+
+\textbf{Tỷ lệ phạt oan} (FPR): trong các cặp thật sự tương đương,
+bao nhiêu cặp bị báo nhầm là sai?
+
+\textbf{Tỷ lệ phát hiện} (Recall): trong các cặp thật sự sai,
+bao nhiêu cặp được phát hiện?
+
+\[
+\begin{aligned}
+ \mathrm{FPR}
+   &= \frac{\#\text{cặp tương đương bị báo nhầm}}
+           {\#\text{cặp tương đương có nhãn xác minh}}, \\[0.5em]
+ \mathrm{Recall}
+   &= \frac{\#\text{cặp sai được phát hiện}}
+           {\#\text{cặp sai có nhãn xác minh}}.
+\end{aligned}
+\]
+
+FPR thấp tốt; Recall cao tốt. Phải báo cả hai cùng nhau.
+Mẫu chưa kết luận không tính là phát hiện, cũng không tính là tương đương.
+
+Các chỉ số bổ sung:
+\begin{itemize}
+  \item Độ chính xác ánh xạ biến.
+  \item Độ chính xác định vị lỗi (thành phần báo đầu tiên có đúng không).
+  \item Tỷ lệ phản ví dụ qua kiểm tra độc lập.
+  \item Thời gian chạy, số lần gọi bộ giải, tỷ lệ chưa kết luận.
+\end{itemize}
+
+\subsection{Thử bỏ từng mô-đun}
+
+\begin{table}[H]
+\centering
+\caption{Kế hoạch thử bỏ từng mô-đun.}
+\label{tab:ablation}
+\small
+\begin{tabularx}{\textwidth}{L{3.5cm} Y Y}
+\toprule
+\textbf{Bỏ đi} & \textbf{Câu hỏi} & \textbf{Chỉ số nhạy nhất} \\
+\midrule
+Chuẩn hóa & Có phạt oan lại không? & FPR trên tập tương đương \\
+Ánh xạ biến & Bỏ sót hoặc ghép sai khi đổi tên? & Độ chính xác ánh xạ \\
+Kiểm tra ngữ cảnh & Ràng buộc dư có bị phạt không? & FPR, độ chính xác đối chiếu \\
+Truy vấn có hướng & Lấy mẫu ngẫu nhiên có bỏ sót không? & Recall, độ phủ phản ví dụ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%%=============================================================================
+\section{Đóng góp và kết quả mục tiêu}
+%%=============================================================================
+
+Sau khi hoàn thành thực nghiệm, bài báo kỳ vọng đóng góp:
+
+\begin{enumerate}
+  \item Một quy trình đánh giá thành phần kèm bằng chứng rõ ràng:
+    ánh xạ biến, kiểm tra từng ràng buộc, phản ví dụ có thể kiểm tra lại.
+  \item Một bộ dữ liệu tập trung vào hai điểm mù: cách viết khác nhưng cùng nghĩa,
+    và cùng giá trị tối ưu nhưng khác miền nghiệm.
+  \item Nghiên cứu thực nghiệm chỉ ra khi nào truy vấn có hướng hữu ích hơn
+    lấy mẫu ngẫu nhiên và khi nào không.
+\end{enumerate}
+
+Bài báo được coi là thuyết phục khi:
+\begin{itemize}
+  \item Giảm rõ FPR trên tập cặp tương đương.
+  \item Tăng Recall trên lỗi bỏ sót và lỗi siết cận.
+  \item Phân tích đánh đổi chi phí--khả năng phát hiện trên cùng ngân sách tính toán.
+\end{itemize}
+
+%%=============================================================================
+\section{Kế hoạch 12 tuần}
+\label{sec:plan}
+%%=============================================================================
+
+\begin{description}[leftmargin=2.5em,labelsep=0.5em,style=nextline]
+  \item[\textbf{Tuần 1--2.}]
+  Xác định rõ tiêu chí tương đương; viết bộ kiểm tra với đáp án biết trước.
+  \item[\textbf{Tuần 3--4.}]
+  Hoàn thiện chuẩn hóa và ánh xạ biến; tái triển khai phương pháp đối chứng;
+  thiết lập nhật ký chạy cho từng cặp.
+  \item[\textbf{Tuần 5--6.}]
+  Hoàn thiện hai hướng truy vấn và kiểm tra phản ví dụ độc lập; đo ngân sách thực.
+  \item[\textbf{Tuần 7--8.}]
+  Tạo đợt thử nhỏ; xác nhận nhãn độc lập; mở rộng sau khi nhãn đã ổn định.
+  \item[\textbf{Tuần 9.}]
+  Thu khoảng 120 đầu ra LLM thực (2 LLM, 2 cách đặt câu lệnh, 3 lần sinh, 10 bài toán).
+  \item[\textbf{Tuần 10.}]
+  Chạy phương pháp đối chứng, thử bỏ từng mô-đun.
+  \item[\textbf{Tuần 11.}]
+  Tính khoảng tin cậy (bootstrap theo họ bài toán), rà soát phản ví dụ.
+  \item[\textbf{Tuần 12.}]
+  Viết kết quả từ nhật ký chạy; công bố cấu hình và hướng dẫn tái lập.
+\end{description}
+
+\subsection{Rủi ro và cách xử lý}
+
+\begin{table}[H]
+\centering
+\caption{Rủi ro chính và hành động.}
+\label{tab:risk}
+\small
+\begin{tabularx}{\textwidth}{L{3cm} L{2.8cm} Y}
+\toprule
+\textbf{Rủi ro} & \textbf{Dấu hiệu sớm} & \textbf{Hành động} \\
+\midrule
+Ánh xạ thất bại nhiều
+  & $>$20\% ca thử thất bại
+  & Chỉ nhận ánh xạ tường minh; báo không hỗ trợ \\
+MILP quá chậm
+  & $>$30\% hết thời gian
+  & LP làm nghiên cứu chính; MILP là mở rộng \\
+Lỗi đọc đầu ra LLM
+  & $>$10\% không đọc được
+  & Báo tỷ lệ toàn quy trình riêng \\
+Không cải thiện được baseline
+  & Recall không tăng trên nhóm lỗi chính
+  & Báo kết quả và phân tích giới hạn \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+%%=============================================================================
+\section{Cấu trúc bài báo dự kiến}
+%%=============================================================================
+
+\begin{enumerate}
+  \item \textbf{Giới thiệu:} tại sao so giá trị tối ưu không đủ;
+    tại sao đánh giá theo thành phần cần cải tiến.
+  \item \textbf{Nghiên cứu liên quan:} EquivaMap, Falsification, CIR, ReLoop.
+  \item \textbf{Phân tích điểm yếu:} ba điểm mù với ví dụ cụ thể.
+  \item \textbf{\method:} ánh xạ biến, chuẩn hóa, đối chiếu, truy vấn, mục tiêu.
+  \item \textbf{Bộ dữ liệu:} cách xây dựng và xác minh nhãn.
+  \item \textbf{Thực nghiệm:} RQ1, RQ2, RQ5 là chính; RQ3--RQ4 bổ sung.
+  \item \textbf{Phân tích:} phản ví dụ, chi phí theo Recall, thử bỏ từng mô-đun.
+  \item \textbf{Giới hạn:} cần mô hình tham chiếu; ánh xạ tùy ý phải cấp tường minh.
+  \item \textbf{Kết luận:} từ đếm thành phần sang chẩn đoán có phản ví dụ.
+\end{enumerate}
+
+%%=============================================================================
+\Needspace{12\baselineskip}
+\section{Thứ tự ưu tiên}
+%%=============================================================================
+
+\begin{keybox}[unbreakable,title=\textbf{Làm đúng thứ tự này}]
+\begin{enumerate}
+  \item Kiểm tra đúng trên những ca nhỏ có đáp án biết trước.
+  \item Tạo nhãn đã xác minh độc lập, đặc biệt cho lỗi giữ nguyên giá trị tối ưu.
+  \item Kiểm tra trên nhiều họ bài toán mới, không chỉ tăng biến thể của vài bài cũ.
+  \item Đo bằng nhật ký chạy thật; báo cả chi phí và những ca chưa kết luận.
+  \item Viết khẳng định mạnh đến mức bằng chứng thực tế cho phép.
+\end{enumerate}
+\end{keybox}
+
+\printbibliography[title={Tài liệu tham khảo}]
+\end{document}
