@@ -108,9 +108,25 @@ def test_elimination_rejected_without_row_evidence():
     assert cert.ref_eliminations == {}
 
 
-def test_linked_reference_rejects_candidate_missing_order_link():
+def test_linked_reference_accepts_single_ordering_binary_via_tautology():
+    """A single-z candidate that reproduces the linking row is now verified.
+
+    The reference's ``z_ij + z_ji = 1`` row becomes a tautology after substituting
+    ``z_ji = 1 - z_ij``; it imposes no obligation on the candidate, so the lift is
+    accepted instead of rejecting the whole certificate (previous behaviour).
+    """
     ref = make_aircraft_landing_reference()
     cand = _aircraft_landing_candidate()
+    cert = build_projection_certificate(ref, cand)
+    assert cert.is_verified is True
+    assert set(cert.ref_eliminations) == {"z21", "z31", "z32"}
+    assert "ref-elimination" in cert.detection_method
+
+
+def test_linked_reference_rejects_candidate_with_broken_separation_row():
+    """False-positive guard: a broken separation row must still be rejected."""
+    ref = make_aircraft_landing_reference()
+    cand = _aircraft_landing_candidate(break_eliminated_row=True)
     cert = build_projection_certificate(ref, cand)
     assert cert.is_verified is False
 
@@ -122,6 +138,52 @@ def test_projected_ir_pins_eliminated_variable():
     projected = cert.project_ir(cand, ref)
     names = {c.name for c in projected.constraints}
     assert {"_elim_z21", "_elim_z31", "_elim_z32"} <= names
+
+
+# ── Existential projection for candidate-only auxiliary variables ───────────
+
+def _slack_candidate():
+    """Reference ``x + y <= 10`` vs candidate with slack ``s >= 0``.
+
+    Directly names the reference coordinates so the only structural difference is
+    the extra auxiliary ``s`` defined by ``x + y + s = 10`` (never in the
+    objective). It must be projected out existentially, not treated as unmapped.
+    """
+    ref = CanonicalIR(
+        "slack_ref",
+        {"x": _var("x", "continuous", 0.0, 20.0),
+         "y": _var("y", "continuous", 0.0, 20.0)},
+        [CanonicalConstraint("cap", {"x": 1.0, "y": 1.0}, -10.0, "<=")],
+        "minimize",
+        {"x": 1.0, "y": 1.0},
+    )
+    cand = CanonicalIR(
+        "slack_cand",
+        {"x": _var("x", "continuous", 0.0, 20.0),
+         "y": _var("y", "continuous", 0.0, 20.0),
+         "s": _var("s", "continuous", 0.0, 20.0)},
+        [CanonicalConstraint("cap_slack", {"x": 1.0, "y": 1.0, "s": 1.0}, -10.0, "<="),
+         CanonicalConstraint("s_nonneg", {"s": -1.0}, 0.0, "<=")],
+        "minimize",
+        {"x": 1.0, "y": 1.0},
+    )
+    return ref, cand
+
+
+def test_candidate_only_slack_variable_is_projected():
+    ref, cand = _slack_candidate()
+    cert = build_projection_certificate(ref, cand)
+    assert cert.is_verified is True
+    assert cert.existential_variables.get("s") is not None
+    assert "existential-projection" in cert.detection_method
+
+
+def test_auxiliary_in_objective_is_not_projected():
+    """A candidate-only variable that enters the objective must NOT be projected."""
+    ref, cand = _slack_candidate()
+    cand.objective_coeffs = {"x": 1.0, "y": 1.0, "s": 5.0}
+    cert = build_projection_certificate(ref, cand)
+    assert cert.is_verified is False
 
 
 # ── Module 1 §5.4: declared unit conversion ─────────────────────────────────
